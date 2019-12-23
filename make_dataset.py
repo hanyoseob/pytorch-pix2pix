@@ -10,7 +10,7 @@ str_dataset = {'train', 'val', 'test'}
 
 for phs in str_dataset:
 
-    dir_data = './dataset/facades/%s/' % phs
+    dir_data = './data/facades/%s/' % phs
     lst_data = os.listdir(dir_data)
 
     lst_data.sort(key=lambda f: int(''.join(filter(str.isdigit, f))))

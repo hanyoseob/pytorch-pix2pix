@@ -1,17 +1,18 @@
-from utils import *
-# from train import *
-from train_w_discrim import *
-
 import argparse
 
+from train_w_discrim import *
+from utils import *
+
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
+
 ## setup parse
-parser = argparse.ArgumentParser(description='Train the network for descattering related with LANL project',
+parser = argparse.ArgumentParser(description='Train the pix2pix network',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
 parser.add_argument('--mode', default='train', choices=['train', 'test'], dest='mode')
 parser.add_argument('--train_continue', default='off', choices=['on', 'off'], dest='train_continue')
 
-parser.add_argument('--scope', default='trans2dens_1linear_l1_w_discrim', dest='scope')
+parser.add_argument('--scope', default='pix2pix_facades', dest='scope')
 # parser.add_argument('--scope', default='trans2dens_1linear_l1', dest='scope')
 # parser.add_argument('--scope', default='trans2dens_1linear_l2', dest='scope')
 # parser.add_argument('--scope', default='trans2dens_autoencoder', dest='scope')
@@ -23,7 +24,7 @@ parser.add_argument('--dir_data', default='./data', dest='dir_data')
 parser.add_argument('--dir_result', default='./result', dest='dir_result')
 
 parser.add_argument('--num_epoch', type=int,  default=1000, dest='num_epoch')
-parser.add_argument('--batch_size', type=int, default=10, dest='batch_size')
+parser.add_argument('--batch_size', type=int, default=1, dest='batch_size')
 
 parser.add_argument('--learning_rate', type=float, default=1e-2, dest='learning_rate')
 
@@ -33,13 +34,13 @@ parser.add_argument('--wgt_gan', type=float, default=1e0, dest='wgt_gan')
 
 parser.add_argument('--optim', default='adam', choices=['sgd', 'adam', 'rmsprop'], dest='optim')
 
-parser.add_argument('--ny_in', type=int, default=1, dest='ny_in')
-parser.add_argument('--nx_in', type=int, default=1, dest='nx_in')
-parser.add_argument('--nch_in', type=int, default=400, dest='nch_in')
+parser.add_argument('--ny_in', type=int, default=256, dest='ny_in')
+parser.add_argument('--nx_in', type=int, default=256, dest='nx_in')
+parser.add_argument('--nch_in', type=int, default=3, dest='nch_in')
 
-parser.add_argument('--ny_out', type=int, default=1, dest='ny_out')
-parser.add_argument('--nx_out', type=int, default=1, dest='nx_out')
-parser.add_argument('--nch_out', type=int, default=400, dest='nch_out')
+parser.add_argument('--ny_out', type=int, default=256, dest='ny_out')
+parser.add_argument('--nx_out', type=int, default=256, dest='nx_out')
+parser.add_argument('--nch_out', type=int, default=3, dest='nch_out')
 
 parser.add_argument('--data_type', default='float32', dest='data_type')
 

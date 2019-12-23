@@ -1,2 +1,7 @@
 dataset/
 dataset/facades
+
+data/
+data/train/
+data/val/
+data/test/

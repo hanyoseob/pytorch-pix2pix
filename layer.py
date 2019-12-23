@@ -48,29 +48,59 @@ class Concat(nn.Module):
 
 
 class CNR1d(nn.Module):
-    def __init__(self, nch_in, nch_out):
+    def __init__(self, nch_in, nch_out, bnorm=True, brelu=True):
         super().__init__()
-        self.cbr = nn.Sequential(
-            nn.Linear(nch_in, nch_out),
-            nn.InstanceNorm2d(nch_out),
-            nn.ReLU(inplace=True)
-        )
+
+        layers = nn.Linear(nch_in, nch_out)
+        if bnorm:
+            layers.append(nn.InstanceNorm1d(nch_out))
+        if brelu:
+            layers.append(nn.LeakyReLU(brelu))
+
+        self.cbr = nn.Sequential(*layers)
 
     def forward(self, x):
         return self.cbr(x)
 
 
 class CNR2d(nn.Module):
-    def __init__(self, nch_in, nch_out):
+    def __init__(self, nch_in, nch_out, kerner_size=4, stride=2, padding=1, bnorm=True, brelu=True, bdrop=False):
         super().__init__()
-        self.cbr = nn.Sequential(
-            nn.Conv2d(nch_in, nch_out, kernel_size=3, padding=1),
-            nn.InstanceNorm2d(nch_out),
-            nn.ReLU(inplace=True)
-        )
+        layers = [nn.Conv2d(nch_in, nch_out, kernel_size=kerner_size, stride=stride, padding=padding)]
+
+        if bnorm:
+            layers.append(nn.InstanceNorm2d(nch_out))
+
+        if brelu:
+            layers.append(nn.LeakyReLU(brelu))
+        else:
+            layers.append(nn.ReLU())
+
+        if bdrop:
+            layers.append(nn.Dropout2d(bdrop))
+
+        self.cbr = nn.Sequential(*layers)
 
     def forward(self, x):
         return self.cbr(x)
+
+
+class DECNR2d(nn.Module):
+    def __init__(self, nch_in, nch_out, kerner_size=4, stride=2, padding=1, bnorm=True, brelu=True, bdrop=False):
+        super().__init__()
+        layers = [nn.ConvTranspose2d(nch_in, nch_out, kernel_size=kerner_size, stride=stride, padding=padding)]
+        if bnorm:
+            layers.append(nn.InstanceNorm2d(nch_out))
+        if brelu:
+            layers.append(nn.LeakyReLU(brelu))
+        if bdrop:
+            layers.append(nn.Dropout2d(bdrop))
+
+        self.cbr = nn.Sequential(*layers)
+
+    def forward(self, x):
+        return self.cbr(x)
+
 
 
 class Conv2d(nn.Module):

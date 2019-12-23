@@ -3,6 +3,8 @@ from dataset import *
 
 import torch
 import torch.nn as nn
+import torchvision
+from torchvision import transforms
 from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt
 
@@ -40,26 +42,6 @@ class Train:
 
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    # def save(self, net, epoch):
-    #     dir_checkpoint = os.path.join(self.dir_checkpoint, self.scope)
-    #
-    #     if not os.path.exists(dir_checkpoint):
-    #         os.makedirs(dir_checkpoint)
-    #
-    #     torch.save(net.state_dict(),  '%s/model_epoch%04d.pth' % (dir_checkpoint, epoch))
-    #
-    # def load(self, net, epoch=[]):
-    #     dir_checkpoint = os.path.join(self.dir_checkpoint, self.scope)
-    #
-    #     if not epoch:
-    #         ckpt = os.listdir(dir_checkpoint)
-    #         ckpt.sort()
-    #         epoch = int(ckpt[-1].split('epoch')[1].split('.pt')[0])
-    #
-    #     net.load_state_dict(torch.load('%s/model_epoch%04d.pth' % (dir_checkpoint, epoch)))
-    #
-    #     return net, epoch
-
     def save(self, netG, netD, epoch):
         dir_checkpoint = os.path.join(self.dir_checkpoint, self.scope)
 
@@ -84,6 +66,9 @@ class Train:
         return netG, netD, epoch
 
     def train(self):
+        dir_data_train = os.path.join(self.dir_data, 'facades', 'train')
+        dir_data_val = os.path.join(self.dir_data, 'facades', 'val')
+
         log_dir_train = os.path.join(self.dir_log, self.scope, 'train')
         log_dir_val = os.path.join(self.dir_log, self.scope, 'val')
 
@@ -100,27 +85,22 @@ class Train:
         nch_in = self.nch_in
         nch_out = self.nch_out
 
-        num_train = 8000
-        num_val = 1000
-        num_test = 1000
-
-        num_batch_train = int((num_train / batch_size) + ((num_train % batch_size) != 0))
-        num_batch_val = int((num_val / batch_size) + ((num_val % batch_size) != 0))
-        num_batch_test = int((num_test / batch_size) + ((num_test % batch_size) != 0))
-
         ## setup dataset
-        # dataset_train = PtDataset('Data', slice(num_train), transform=transforms.Compose([ToTensor()]))
-        # dataset_val = PtDataset('Data', slice(num_train, num_train + num_val),transform=transforms.Compose([ToTensor()]))
-
-        dataset_train = PtDataset('Data', slice(num_train), transform=[])
-        dataset_val = PtDataset('Data', slice(num_train, num_train + num_val), transform=[])
+        dataset_train = PtDataset(dir_data_train, transform=transforms.Compose([Nomalize(), ToTensor()]))
+        dataset_val = PtDataset(dir_data_val, transform=transforms.Compose([Nomalize(), ToTensor()]))
         loader_train = torch.utils.data.DataLoader(dataset_train, batch_size=batch_size, shuffle=True, num_workers=0)
         loader_val = torch.utils.data.DataLoader(dataset_val, batch_size=batch_size, shuffle=False, num_workers=0)
 
+        num_train = len(dataset_train)
+        num_val = len(dataset_val)
+
+        num_batch_train = int((num_train / batch_size) + ((num_train % batch_size) != 0))
+        num_batch_val = int((num_val / batch_size) + ((num_val % batch_size) != 0))
+
         ## setup network
-        netG = nn.Linear(nch_in, nch_out).to(device)
-        netD = Discriminator(2, 64).to(device)
-        # net = AutoEncoder1d(nch_in, nch_out)
+        netG = UNet(nch_in, nch_out).to(device)
+        netD = Discriminator(2*nch_in).to(device)
+
         st_epoch = 0
 
         if train_continue == 'on':
@@ -129,20 +109,16 @@ class Train:
         ## setup loss & optimization
         l1_fn = nn.L1Loss().to(device) # L1
         gan_fn = nn.BCELoss().to(device)
-        # gan_fn = nn.BCEWithLogitsLoss()
-
-        # fid_fn = nn.MSELoss()  # L2
-        # reg_fn = TV1dLoss()  # TV
 
         paramsG = netG.parameters()
         paramsD = netD.parameters()
         optimG = torch.optim.Adam(paramsG, lr=learning_rate)
         optimD = torch.optim.Adam(paramsD, lr=learning_rate)
 
-        schedG = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimG, 'min', factor=0.5, patience=20, verbose=True)
-        schedD = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimD, 'min', factor=0.5, patience=20, verbose=True)
+        # schedG = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        #     optimG, 'min', factor=0.5, patience=20, verbose=True)
+        # schedD = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        #     optimD, 'min', factor=0.5, patience=20, verbose=True)
         # scheduler = torch.optim.lr_scheduler.ExponentialLR(optim, gamma=0.995)
 
         ## setup tensorboard
@@ -168,21 +144,39 @@ class Train:
 
                 output = netG(input)
 
-                fake = torch.cat([torch.reshape(input, (input.shape[0], 1, input.shape[1])),
-                                  torch.reshape(output, (output.shape[0], 1, output.shape[1]))], dim=1)
-                real = torch.cat([torch.reshape(input, (input.shape[0], 1, input.shape[1])),
-                                  torch.reshape(label, (label.shape[0], 1, label.shape[1]))], dim=1)
+                fake = torch.cat([input, output], dim=1)
+                real = torch.cat([input, label], dim=1)
 
-                pred_fake = netD(fake)
+                # update netD
+                set_requires_grad(netD, True)
+                optimD.zero_grad()
+
+                pred_fake = netD(fake.detach())
                 pred_real = netD(real)
 
-                # gen_loss_gan = (gan_fn(pred_fake, True)).mean()
+                discrim_loss = 0.5 * (gan_fn(pred_fake, torch.zeros_like(pred_fake)) + gan_fn(pred_real, torch.ones_like(pred_real)))
+
+                discrim_loss.backward()
+                    # discrim_loss.backward(retain_graph=True)
+                optimD.step()
+
+
+                # update netG
+                set_requires_grad(netD, False)
+                optimG.zero_grad()
+
+                pred_fake = netD(fake.detach())
+
                 gen_loss_gan = gan_fn(pred_fake, torch.ones_like(pred_fake))
                 gen_loss_l1 = l1_fn(output, label)
                 gen_loss = wgt_l1 * gen_loss_l1 + wgt_gan * gen_loss_gan
 
-                discrim_loss = 0.5 * (gan_fn(pred_fake, torch.zeros_like(pred_fake)) + gan_fn(pred_real, torch.ones_like(pred_real)))
+                gen_loss.backward()
+                    # gen_loss.backward(retain_graph=False)
+                optimG.step()
 
+
+                # get losses
                 gen_loss_l1_train += gen_loss_l1.item()
                 gen_loss_gan_train += gen_loss_gan.item()
                 discrim_loss_train += discrim_loss.item()
@@ -190,17 +184,6 @@ class Train:
                 print('TRAIN: EPOCH %d: BATCH %04d/%04d: GEN L1: %.6f GEN GAN: %.6f DISCRIM: %.6f'
                       % (epoch, i, num_batch_train, gen_loss_l1_train / i, gen_loss_gan_train / i, discrim_loss_train / i))
 
-                # update netD
-                set_requires_grad(netD, True)
-                optimD.zero_grad()
-                discrim_loss.backward(retain_graph=True)
-                optimD.step()
-
-                # update netG
-                set_requires_grad(netD, False)
-                optimG.zero_grad()
-                gen_loss.backward(retain_graph=False)
-                optimG.step()
 
             writer_train.add_scalar('gen_loss_L1', gen_loss_l1_train / num_batch_train, epoch)
             writer_train.add_scalar('gen_loss_GAN', gen_loss_gan_train / num_batch_train, epoch)
@@ -213,48 +196,48 @@ class Train:
             add_figure(pred_fake, pred_real, writer_train, epoch=epoch, ylabel='Probability', xlabel='Radius', namescope='train/discrim')
 
             ## validation phase
-            # with torch.no_grad():
-            netG.eval()
-            netD.eval()
+            with torch.no_grad():
+                netG.eval()
+                netD.eval()
 
-            gen_loss_l1_val = 0
-            gen_loss_gan_val = 0
-            discrim_loss_val = 0
+                gen_loss_l1_val = 0
+                gen_loss_gan_val = 0
+                discrim_loss_val = 0
 
-            for i, data in enumerate(loader_val, 1):
-                input = data['input'].to(device)
-                label = data['label'].to(device)
+                for i, data in enumerate(loader_val, 1):
+                    input = data['input'].to(device)
+                    label = data['label'].to(device)
 
-                output = netG(input)
+                    output = netG(input)
 
-                pred_real = netD(input, label)
-                pred_fake = netD(input, output)
+                    pred_real = netD(input, label)
+                    pred_fake = netD(input, output)
 
-                gen_loss_gan = gan_fn(pred_fake, torch.ones_like(pred_fake))
-                gen_loss_l1 = l1_fn(output, label)
-                gen_loss = gen_loss_l1 + mu * gen_loss_gan
-                discrim_loss = (gan_fn(pred_fake, torch.zeros_like(pred_fake)) + gan_fn(pred_real, torch.ones_like(pred_real))).mean()
+                    gen_loss_gan = gan_fn(pred_fake, torch.ones_like(pred_fake))
+                    gen_loss_l1 = l1_fn(output, label)
+                    gen_loss = gen_loss_l1 + mu * gen_loss_gan
+                    discrim_loss = (gan_fn(pred_fake, torch.zeros_like(pred_fake)) + gan_fn(pred_real, torch.ones_like(pred_real))).mean()
 
-                gen_loss_l1_val += gen_loss_l1.item()
-                gen_loss_gan_val += gen_loss_gan.item()
-                discrim_loss_val += discrim_loss.item()
+                    gen_loss_l1_val += gen_loss_l1.item()
+                    gen_loss_gan_val += gen_loss_gan.item()
+                    discrim_loss_val += discrim_loss.item()
 
-                print('VALID: EPOCH %d: BATCH %04d/%04d: GEN L1: %.6f GEN GAN: %.6f DISCRIM: %.6f'
-                      % (epoch, i, num_batch_val, gen_loss_l1_val / i, gen_loss_gan_val / i, discrim_loss_val / i))
+                    print('VALID: EPOCH %d: BATCH %04d/%04d: GEN L1: %.6f GEN GAN: %.6f DISCRIM: %.6f'
+                          % (epoch, i, num_batch_val, gen_loss_l1_val / i, gen_loss_gan_val / i, discrim_loss_val / i))
 
-            writer_train.add_scalar('gen_loss_L1', gen_loss_l1_val / num_batch_val, epoch)
-            writer_train.add_scalar('gen_loss_GAN', gen_loss_gan_val / num_batch_val, epoch)
-            writer_train.add_scalar('discrim_loss', discrim_loss_val / num_batch_val, epoch)
+                writer_train.add_scalar('gen_loss_L1', gen_loss_l1_val / num_batch_val, epoch)
+                writer_train.add_scalar('gen_loss_GAN', gen_loss_gan_val / num_batch_val, epoch)
+                writer_train.add_scalar('discrim_loss', discrim_loss_val / num_batch_val, epoch)
 
-            ## show output
-            add_figure(output, label, writer_val, epoch=epoch, ylabel='Density', xlabel='Radius', namescope='valid/gen')
+                ## show output
+                add_figure(output, label, writer_val, epoch=epoch, ylabel='Density', xlabel='Radius', namescope='valid/gen')
 
-            ## show predict
-            add_figure(pred_fake, pred_real, writer_val, epoch=epoch, ylabel='Probability', xlabel='Radius', namescope='valid/discrim')
+                ## show predict
+                add_figure(pred_fake, pred_real, writer_val, epoch=epoch, ylabel='Probability', xlabel='Radius', namescope='valid/discrim')
 
-            ## update schduler
-            schedG.step(gen_loss_l1_val)
-            schedD.step(gen_loss_l1_val)
+                ## update schduler
+                # schedG.step(gen_loss_l1_val)
+                # schedD.step(gen_loss_l1_val)
 
             ## save
             if (epoch % 10) == 0:
