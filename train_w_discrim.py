@@ -29,10 +29,15 @@ class Train:
         self.wgt_gan = args.wgt_gan
 
         self.optim = args.optim
+        self.beta1= args.beta1
 
         self.ny_in = args.ny_in
         self.nx_in = args.nx_in
         self.nch_in = args.nch_in
+
+        self.ny_load = args.ny_load
+        self.nx_load = args.nx_load
+        self.nch_load = args.nch_load
 
         self.ny_out = args.ny_out
         self.nx_out = args.nx_out
@@ -68,8 +73,8 @@ class Train:
     def preprocess(self, data):
         nomalize = Nomalize()
         randflip = RandomFlip()
-        rescale = Rescale(286)
-        randomcrop = RandomCrop(256)
+        rescale = Rescale((self.ny_load, self.nx_load))
+        randomcrop = RandomCrop((self.ny_in, self.nx_in))
         totensor = ToTensor()
         return totensor(randomcrop(rescale(randflip(nomalize(data)))))
         # return  transforms.Compose([Nomalize(), RandomFlip(), Rescale(286), RandomCrop(256), ToTensor()])
@@ -102,7 +107,8 @@ class Train:
 
         ## setup dataset
         dataset_train = PtDataset(dir_data_train, transform=self.preprocess)
-        dataset_val = PtDataset(dir_data_val, transform=[])
+        dataset_val = PtDataset(dir_data_val, transform=transforms.Compose([Nomalize(), ToTensor()]))
+
         loader_train = torch.utils.data.DataLoader(dataset_train, batch_size=batch_size, shuffle=True, num_workers=0)
         loader_val = torch.utils.data.DataLoader(dataset_val, batch_size=batch_size, shuffle=False, num_workers=0)
 
@@ -127,8 +133,8 @@ class Train:
 
         paramsG = netG.parameters()
         paramsD = netD.parameters()
-        optimG = torch.optim.Adam(paramsG, lr=learning_rate, betas=(0.5, 0.999))
-        optimD = torch.optim.Adam(paramsD, lr=learning_rate, betas=(0.5, 0.999))
+        optimG = torch.optim.Adam(paramsG, lr=learning_rate, betas=(self.beta1, 0.999))
+        optimD = torch.optim.Adam(paramsD, lr=learning_rate, betas=(self.beta1, 0.999))
 
         # schedG = torch.optim.lr_scheduler.ReduceLROnPlateau(
         #     optimG, 'min', factor=0.5, patience=20, verbose=True)
