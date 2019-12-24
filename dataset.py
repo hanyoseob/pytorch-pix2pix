@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from skimage import io, transform
 import os
 
 
@@ -67,8 +68,8 @@ class ToTensor(object):
         # return data
 
         input, label = data['input'], data['label']
-        input = input.transpose((2, 0, 1))
-        label = label.transpose((2, 0, 1))
+        input = input.transpose((2, 0, 1)).astype(np.float32)
+        label = label.transpose((2, 0, 1)).astype(np.float32)
         return {'input': torch.from_numpy(input), 'label': torch.from_numpy(label)}
 
 
@@ -118,3 +119,90 @@ class Denomalize(object):
         input = (input + 1) / 2 * 255
         label = (label + 1) / 2 * 255
         return {'input': input, 'label': label}
+
+
+class RandomFlip(object):
+    def __call__(self, data):
+        # Random Left or Right Flip
+
+        # for key, value in data:
+        #     data[key] = 2 * (value / 255) - 1
+        #
+        # return data
+        input, label = data['input'], data['label']
+
+        if np.random.rand() > 0.5:
+            input = np.fliplr(input)
+            label = np.fliplr(label)
+
+        if np.random.rand() > 0.5:
+            input = np.flipud(input)
+            label = np.flipud(label)
+
+        return {'input': input, 'label': label}
+
+
+class Rescale(object):
+  """Rescale the image in a sample to a given size
+
+  Args:
+    output_size (tuple or int): Desired output size.
+                                If tuple, output is matched to output_size.
+                                If int, smaller of image edges is matched
+                                to output_size keeping aspect ratio the same.
+  """
+
+  def __init__(self, output_size):
+    assert isinstance(output_size, (int, tuple))
+    self.output_size = output_size
+
+  def __call__(self, data):
+    input, label = data['input'], data['label']
+
+    h, w = input.shape[:2]
+
+    if isinstance(self.output_size, int):
+      if h > w:
+        new_h, new_w = self.output_size * h / w, self.output_size
+      else:
+        new_h, new_w = self.output_size, self.output_size * w / h
+    else:
+      new_h, new_w = self.output_size
+
+    new_h, new_w = int(new_h), int(new_w)
+
+    input = transform.resize(input, (new_h, new_w))
+    label = transform.resize(label, (new_h, new_w))
+
+    return {'input': input, 'label': label}
+
+
+class RandomCrop(object):
+  """Crop randomly the image in a sample
+
+  Args:
+    output_size (tuple or int): Desired output size.
+                                If int, square crop is made.
+  """
+
+  def __init__(self, output_size):
+    assert isinstance(output_size, (int, tuple))
+    if isinstance(output_size, int):
+      self.output_size = (output_size, output_size)
+    else:
+      assert len(output_size) == 2
+      self.output_size = output_size
+
+  def __call__(self, data):
+    input, label = data['input'], data['label']
+
+    h, w = input.shape[:2]
+    new_h, new_w = self.output_size
+
+    top = np.random.randint(0, h - new_h)
+    left = np.random.randint(0, w - new_w)
+
+    input = input[top: top + new_h, left: left + new_w]
+    label = label[top: top + new_h, left: left + new_w]
+
+    return {'input': input, 'label': label}

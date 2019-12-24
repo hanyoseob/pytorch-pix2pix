@@ -85,9 +85,11 @@ class Train:
         nch_in = self.nch_in
         nch_out = self.nch_out
 
+        composed = transforms.Compose([Nomalize(), RandomFlip(), Rescale(286), RandomCrop(256), ToTensor()])
+
         ## setup dataset
-        dataset_train = PtDataset(dir_data_train, transform=transforms.Compose([Nomalize(), ToTensor()]))
-        dataset_val = PtDataset(dir_data_val, transform=transforms.Compose([Nomalize(), ToTensor()]))
+        dataset_train = PtDataset(dir_data_train, transform=composed)
+        dataset_val = PtDataset(dir_data_val, transform=composed)
         loader_train = torch.utils.data.DataLoader(dataset_train, batch_size=batch_size, shuffle=True, num_workers=0)
         loader_val = torch.utils.data.DataLoader(dataset_val, batch_size=batch_size, shuffle=False, num_workers=0)
 
