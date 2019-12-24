@@ -69,8 +69,8 @@ class CNR2d(nn.Module):
         layers = [nn.Conv2d(nch_in, nch_out, kernel_size=kerner_size, stride=stride, padding=padding)]
 
         if bnorm:
-            layers.append(nn.BatchNorm1d(nch_out))
-            # layers.append(nn.InstanceNorm2d(nch_out))
+            # layers.append(nn.BatchNorm2d(nch_out))
+            layers.append(nn.InstanceNorm2d(nch_out))
 
         if brelu:
             layers.append(nn.LeakyReLU(brelu, True))
@@ -91,8 +91,8 @@ class DECNR2d(nn.Module):
         super().__init__()
         layers = [nn.ConvTranspose2d(nch_in, nch_out, kernel_size=kerner_size, stride=stride, padding=padding)]
         if bnorm:
-            layers.append(nn.BatchNorm2d(nch_out))
-            # layers.append(nn.InstanceNorm2d(nch_out))
+            # layers.append(nn.BatchNorm2d(nch_out))
+            layers.append(nn.InstanceNorm2d(nch_out))
         if brelu:
             layers.append(nn.LeakyReLU(brelu, True))
         if bdrop:
@@ -109,6 +109,15 @@ class Conv2d(nn.Module):
     def __init__(self, nch_in, nch_out, kernel_size=4, stride=1, padding=1):
         super(Conv2d, self).__init__()
         self.conv = nn.Conv2d(nch_in, nch_out, kernel_size=kernel_size, stride=stride, padding=padding)
+
+    def forward(self, x):
+        return self.conv(x)
+
+
+class Deconv2d(nn.Module):
+    def __init__(self, nch_in, nch_out, kernel_size=4, stride=1, padding=1):
+        super(Deconv2d, self).__init__()
+        self.conv = nn.ConvTranspose2d(nch_in, nch_out, kernel_size=kernel_size, stride=stride, padding=padding)
 
     def forward(self, x):
         return self.conv(x)

@@ -26,7 +26,7 @@ parser.add_argument('--dir_result', default='./result', dest='dir_result')
 parser.add_argument('--num_epoch', type=int,  default=1000, dest='num_epoch')
 parser.add_argument('--batch_size', type=int, default=1, dest='batch_size')
 
-parser.add_argument('--learning_rate', type=float, default=2e-3, dest='learning_rate')
+parser.add_argument('--learning_rate', type=float, default=1e-2, dest='learning_rate')
 
 parser.add_argument('--mu', type=float, default=1e-1, dest='mu')
 parser.add_argument('--wgt_l1', type=float, default=1e2, dest='wgt_l1')
