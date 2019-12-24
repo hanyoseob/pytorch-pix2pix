@@ -69,7 +69,7 @@ class Discriminator(nn.Module):
         self.dsc2 = CNR2d(1 * self.nch_ker, 2 * self.nch_ker, stride=2, bnorm=True, brelu=0.2)
         self.dsc3 = CNR2d(2 * self.nch_ker, 4 * self.nch_ker, stride=2, bnorm=True, brelu=0.2)
         self.dsc4 = CNR2d(4 * self.nch_ker, 8 * self.nch_ker, stride=1, bnorm=True, brelu=0.2)
-        self.dsc1 = Conv2d(8 * self.nch_ker, 1,               stride=1)
+        self.dsc5 = Conv2d(8 * self.nch_ker, 1,               stride=1)
         # self.dsc5 = CNR2d(8 * self.nch_ker, 1,                bnorm=True, brelu=0.2, stride=1)
 
     def forward(self, x):

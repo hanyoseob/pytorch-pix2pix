@@ -109,8 +109,8 @@ class Train:
         dataset_train = PtDataset(dir_data_train, transform=self.preprocess)
         dataset_val = PtDataset(dir_data_val, transform=transforms.Compose([Nomalize(), ToTensor()]))
 
-        loader_train = torch.utils.data.DataLoader(dataset_train, batch_size=batch_size, shuffle=True, num_workers=4)
-        loader_val = torch.utils.data.DataLoader(dataset_val, batch_size=batch_size, shuffle=False, num_workers=4)
+        loader_train = torch.utils.data.DataLoader(dataset_train, batch_size=batch_size, shuffle=True, num_workers=0)
+        loader_val = torch.utils.data.DataLoader(dataset_val, batch_size=batch_size, shuffle=False, num_workers=0)
 
         num_train = len(dataset_train)
         num_val = len(dataset_val)
