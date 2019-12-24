@@ -3,7 +3,7 @@ from dataset import *
 
 import torch
 import torch.nn as nn
-import torchvision
+
 from torchvision import transforms
 from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt
@@ -65,6 +65,20 @@ class Train:
 
         return netG, netD, epoch
 
+    def preprocess(self, data):
+        nomalize = Nomalize()
+        randflip = RandomFlip()
+        rescale = Rescale(286)
+        randomcrop = RandomCrop(256)
+        totensor = ToTensor()
+        return totensor(randomcrop(rescale(randflip(nomalize(data)))))
+        # return  transforms.Compose([Nomalize(), RandomFlip(), Rescale(286), RandomCrop(256), ToTensor()])
+
+    def deprocess(self, data):
+        tonumpy = ToNumpy()
+        denomalize = Denomalize()
+        return denomalize(tonumpy(data))
+
     def train(self):
         dir_data_train = os.path.join(self.dir_data, 'facades', 'train')
         dir_data_val = os.path.join(self.dir_data, 'facades', 'val')
@@ -85,11 +99,10 @@ class Train:
         nch_in = self.nch_in
         nch_out = self.nch_out
 
-        composed = transforms.Compose([Nomalize(), RandomFlip(), Rescale(286), RandomCrop(256), ToTensor()])
 
         ## setup dataset
-        dataset_train = PtDataset(dir_data_train, transform=composed)
-        dataset_val = PtDataset(dir_data_val, transform=composed)
+        dataset_train = PtDataset(dir_data_train, transform=self.preprocess)
+        dataset_val = PtDataset(dir_data_val, transform=[])
         loader_train = torch.utils.data.DataLoader(dataset_train, batch_size=batch_size, shuffle=True, num_workers=0)
         loader_val = torch.utils.data.DataLoader(dataset_val, batch_size=batch_size, shuffle=False, num_workers=0)
 
@@ -114,8 +127,8 @@ class Train:
 
         paramsG = netG.parameters()
         paramsD = netD.parameters()
-        optimG = torch.optim.Adam(paramsG, lr=learning_rate)
-        optimD = torch.optim.Adam(paramsD, lr=learning_rate)
+        optimG = torch.optim.Adam(paramsG, lr=learning_rate, betas=(0.5, 0.999))
+        optimD = torch.optim.Adam(paramsD, lr=learning_rate, betas=(0.5, 0.999))
 
         # schedG = torch.optim.lr_scheduler.ReduceLROnPlateau(
         #     optimG, 'min', factor=0.5, patience=20, verbose=True)
@@ -156,7 +169,8 @@ class Train:
                 pred_fake = netD(fake.detach())
                 pred_real = netD(real)
 
-                discrim_loss = 0.5 * (gan_fn(pred_fake, torch.zeros_like(pred_fake)) + gan_fn(pred_real, torch.ones_like(pred_real)))
+                discrim_loss = 0.5 * (gan_fn(pred_fake, torch.zeros_like(pred_fake)) +
+                                      gan_fn(pred_real, torch.ones_like(pred_real)))
 
                 discrim_loss.backward()
                     # discrim_loss.backward(retain_graph=True)
@@ -167,7 +181,7 @@ class Train:
                 set_requires_grad(netD, False)
                 optimG.zero_grad()
 
-                pred_fake = netD(fake.detach())
+                pred_fake = netD(fake)
 
                 gen_loss_gan = gan_fn(pred_fake, torch.ones_like(pred_fake))
                 gen_loss_l1 = l1_fn(output, label)
@@ -192,10 +206,22 @@ class Train:
             writer_train.add_scalar('discrim_loss', discrim_loss_train / num_batch_train, epoch)
 
             ## show output
-            add_figure(output, label, writer_train, epoch=epoch, ylabel='Density', xlabel='Radius', namescope='train/gen')
+            input = self.deprocess(input)
+            output = self.deprocess(output)
+            label = self.deprocess(label)
+
+            writer_train.add_images('input', input, epoch, dataformats='NHWC')
+            writer_train.add_images('ouput', output, epoch, dataformats='NHWC')
+            writer_train.add_images('label', label, epoch, dataformats='NHWC')
+            # add_figure(output, label, writer_train, epoch=epoch, ylabel='Density', xlabel='Radius', namescope='train/gen')
 
             ## show predict
-            add_figure(pred_fake, pred_real, writer_train, epoch=epoch, ylabel='Probability', xlabel='Radius', namescope='train/discrim')
+            pred_fake = self.deprocess(pred_fake)
+            pred_real = self.deprocess(pred_real)
+
+            writer_train.add_images('pred_fake', pred_fake, epoch, dataformats='NHWC')
+            writer_train.add_images('pred_real', pred_real, epoch, dataformats='NHWC')
+            # add_figure(pred_fake, pred_real, writer_train, epoch=epoch, ylabel='Probability', xlabel='Radius', namescope='train/discrim')
 
             ## validation phase
             with torch.no_grad():
@@ -212,13 +238,18 @@ class Train:
 
                     output = netG(input)
 
-                    pred_real = netD(input, label)
-                    pred_fake = netD(input, output)
+                    fake = torch.cat([input, output], dim=1)
+                    real = torch.cat([input, label], dim=1)
+
+                    pred_fake = netD(fake)
+                    pred_real = netD(real)
+
+                    discrim_loss = 0.5 * (gan_fn(pred_fake, torch.zeros_like(pred_fake)) +
+                                          gan_fn(pred_real, torch.ones_like(pred_real)))
 
                     gen_loss_gan = gan_fn(pred_fake, torch.ones_like(pred_fake))
                     gen_loss_l1 = l1_fn(output, label)
-                    gen_loss = gen_loss_l1 + mu * gen_loss_gan
-                    discrim_loss = (gan_fn(pred_fake, torch.zeros_like(pred_fake)) + gan_fn(pred_real, torch.ones_like(pred_real))).mean()
+                    gen_loss = wgt_l1 * gen_loss_l1 + wgt_gan * gen_loss_gan
 
                     gen_loss_l1_val += gen_loss_l1.item()
                     gen_loss_gan_val += gen_loss_gan.item()
@@ -227,15 +258,27 @@ class Train:
                     print('VALID: EPOCH %d: BATCH %04d/%04d: GEN L1: %.6f GEN GAN: %.6f DISCRIM: %.6f'
                           % (epoch, i, num_batch_val, gen_loss_l1_val / i, gen_loss_gan_val / i, discrim_loss_val / i))
 
-                writer_train.add_scalar('gen_loss_L1', gen_loss_l1_val / num_batch_val, epoch)
-                writer_train.add_scalar('gen_loss_GAN', gen_loss_gan_val / num_batch_val, epoch)
-                writer_train.add_scalar('discrim_loss', discrim_loss_val / num_batch_val, epoch)
+                writer_val.add_scalar('gen_loss_L1', gen_loss_l1_val / num_batch_val, epoch)
+                writer_val.add_scalar('gen_loss_GAN', gen_loss_gan_val / num_batch_val, epoch)
+                writer_val.add_scalar('discrim_loss', discrim_loss_val / num_batch_val, epoch)
 
                 ## show output
-                add_figure(output, label, writer_val, epoch=epoch, ylabel='Density', xlabel='Radius', namescope='valid/gen')
+                input = self.deprocess(input)
+                output = self.deprocess(output)
+                label = self.deprocess(label)
+
+                writer_val.add_images('input', input, epoch, dataformats='NHWC')
+                writer_val.add_images('ouput', output, epoch, dataformats='NHWC')
+                writer_val.add_images('label', label, epoch, dataformats='NHWC')
+                # add_figure(output, label, writer_train, epoch=epoch, ylabel='Density', xlabel='Radius', namescope='train/gen')
 
                 ## show predict
-                add_figure(pred_fake, pred_real, writer_val, epoch=epoch, ylabel='Probability', xlabel='Radius', namescope='valid/discrim')
+                pred_fake = self.deprocess(pred_fake)
+                pred_real = self.deprocess(pred_real)
+
+                writer_val.add_images('pred_fake', pred_fake, epoch, dataformats='NHWC')
+                writer_val.add_images('pred_real', pred_real, epoch, dataformats='NHWC')
+                # add_figure(pred_fake, pred_real, writer_train, epoch=epoch, ylabel='Probability', xlabel='Radius', namescope='train/discrim')
 
                 ## update schduler
                 # schedG.step(gen_loss_l1_val)
@@ -304,7 +347,7 @@ class Train:
         print('TEST: AVERAGE LOSS: %.6f' % (loss_test / num_batch_test))
 
 
-def add_figure(output, label, writer, epoch=[], ylabel='Density', xlabel='Radius', namescope=[]):
+def add_plot(output, label, writer, epoch=[], ylabel='Density', xlabel='Radius', namescope=[]):
     fig, ax = plt.subplots()
 
     ax.plot(output.transpose(1, 0).detach().numpy(), '-')

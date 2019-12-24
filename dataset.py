@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from skimage import io, transform
+from skimage import transform
 import os
 
 
@@ -73,24 +73,6 @@ class ToTensor(object):
         return {'input': torch.from_numpy(input), 'label': torch.from_numpy(label)}
 
 
-class ToNumpy(object):
-    """Convert ndarrays in sample to Tensors."""
-
-    def __call__(self, data):
-        # Swap color axis because numpy image: H x W x C
-        #                         torch image: C x H x W
-
-        # for key, value in data:
-        #     data[key] = value.transpose((2, 0, 1)).numpy()
-        #
-        # return data
-
-        input, label = data['input'], data['label']
-        input = input.transpose((2, 0, 1))
-        label = label.transpose((2, 0, 1))
-        return {'input': torch.from_numpy(input), 'label': torch.from_numpy(label)}
-
-
 class Nomalize(object):
     def __call__(self, data):
         # Nomalize [0, 1] => [-1, 1]
@@ -103,21 +85,6 @@ class Nomalize(object):
         input, label = data['input'], data['label']
         input = 2 * (input / 255) - 1
         label = 2 * (label / 255) - 1
-        return {'input': input, 'label': label}
-
-
-class Denomalize(object):
-    def __call__(self, data):
-        # Denomalize [-1, 1] => [0, 1]
-
-        # for key, value in data:
-        #     data[key] = (value + 1) / 2 * 255
-        #
-        # return data
-
-        input, label = data['input'], data['label']
-        input = (input + 1) / 2 * 255
-        label = (label + 1) / 2 * 255
         return {'input': input, 'label': label}
 
 
@@ -206,3 +173,40 @@ class RandomCrop(object):
     label = label[top: top + new_h, left: left + new_w]
 
     return {'input': input, 'label': label}
+
+
+class ToNumpy(object):
+    """Convert ndarrays in sample to Tensors."""
+
+    def __call__(self, data):
+        # Swap color axis because numpy image: H x W x C
+        #                         torch image: C x H x W
+
+        # for key, value in data:
+        #     data[key] = value.transpose((2, 0, 1)).numpy()
+        #
+        # return data
+
+        return data.to('cpu').detach().numpy().transpose(0, 2, 3, 1)
+
+        # input, label = data['input'], data['label']
+        # input = input.transpose((2, 0, 1))
+        # label = label.transpose((2, 0, 1))
+        # return {'input': input.detach().numpy(), 'label': label.detach().numpy()}
+
+
+class Denomalize(object):
+    def __call__(self, data):
+        # Denomalize [-1, 1] => [0, 1]
+
+        # for key, value in data:
+        #     data[key] = (value + 1) / 2 * 255
+        #
+        # return data
+
+        return (data + 1) / 2
+
+        # input, label = data['input'], data['label']
+        # input = (input + 1) / 2 * 255
+        # label = (label + 1) / 2 * 255
+        # return {'input': input, 'label': label}
