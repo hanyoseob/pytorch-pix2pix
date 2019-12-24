@@ -64,12 +64,13 @@ class CNR1d(nn.Module):
 
 
 class CNR2d(nn.Module):
-    def __init__(self, nch_in, nch_out, kerner_size=4, stride=2, padding=1, bnorm=True, brelu=True, bdrop=False):
+    def __init__(self, nch_in, nch_out, kerner_size=4, stride=1, padding=1, bnorm=True, brelu=True, bdrop=False):
         super().__init__()
         layers = [nn.Conv2d(nch_in, nch_out, kernel_size=kerner_size, stride=stride, padding=padding)]
 
         if bnorm:
-            layers.append(nn.InstanceNorm2d(nch_out))
+            layers.append(nn.BatchNorm1d(nch_out))
+            # layers.append(nn.InstanceNorm2d(nch_out))
 
         if brelu:
             layers.append(nn.LeakyReLU(brelu))
@@ -86,15 +87,16 @@ class CNR2d(nn.Module):
 
 
 class DECNR2d(nn.Module):
-    def __init__(self, nch_in, nch_out, kerner_size=4, stride=2, padding=1, bnorm=True, brelu=True, bdrop=False):
+    def __init__(self, nch_in, nch_out, kerner_size=4, stride=1, padding=1, bnorm=True, brelu=True, bdrop=False):
         super().__init__()
         layers = [nn.ConvTranspose2d(nch_in, nch_out, kernel_size=kerner_size, stride=stride, padding=padding)]
         if bnorm:
-            layers.append(nn.InstanceNorm2d(nch_out))
+            layers.append(nn.BatchNorm2d(nch_out))
+            # layers.append(nn.InstanceNorm2d(nch_out))
         if brelu:
             layers.append(nn.LeakyReLU(brelu))
         if bdrop:
-            layers.append(nn.Dropout2d(bdrop))
+            layers.append(nn.Dropout2d(1 - bdrop))
 
         self.cbr = nn.Sequential(*layers)
 
@@ -104,9 +106,9 @@ class DECNR2d(nn.Module):
 
 
 class Conv2d(nn.Module):
-    def __init__(self, nch_in, nch_out, kernel_size=3):
+    def __init__(self, nch_in, nch_out, kernel_size=4, stride=1, padding=1):
         super(Conv2d, self).__init__()
-        self.conv = nn.Conv2d(nch_in, nch_out, kernel_size=kernel_size, padding=int((kernel_size - 1) / 2))
+        self.conv = nn.Conv2d(nch_in, nch_out, kernel_size=kernel_size, stride=stride, padding=padding)
 
     def forward(self, x):
         return self.conv(x)

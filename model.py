@@ -14,23 +14,24 @@ class UNet(nn.Module):
         self.nch_out = nch_out
         self.nch_ker = nch_ker
 
-        self.enc1 = CNR2d(1 * self.nch_in,  1 * self.nch_ker, bnorm=False, brelu=0.2)
-        self.enc2 = CNR2d(1 * self.nch_ker, 2 * self.nch_ker, bnorm=True, brelu=0.2, bdrop=False)
-        self.enc3 = CNR2d(2 * self.nch_ker, 4 * self.nch_ker, bnorm=True, brelu=0.2, bdrop=False)
-        self.enc4 = CNR2d(4 * self.nch_ker, 8 * self.nch_ker, bnorm=True, brelu=0.2, bdrop=False)
-        self.enc5 = CNR2d(8 * self.nch_ker, 8 * self.nch_ker, bnorm=True, brelu=0.2, bdrop=False)
-        self.enc6 = CNR2d(8 * self.nch_ker, 8 * self.nch_ker, bnorm=True, brelu=0.2, bdrop=False)
-        self.enc7 = CNR2d(8 * self.nch_ker, 8 * self.nch_ker, bnorm=True, brelu=0.2, bdrop=False)
-        self.enc8 = CNR2d(8 * self.nch_ker, 8 * self.nch_ker, bnorm=True, brelu=0.0, bdrop=False)
+        self.enc1 = CNR2d(1 * self.nch_in,  1 * self.nch_ker, stride=2, bnorm=False, brelu=0.2, bdrop=False)
+        self.enc2 = CNR2d(1 * self.nch_ker, 2 * self.nch_ker, stride=2, bnorm=True, brelu=0.2, bdrop=False)
+        self.enc3 = CNR2d(2 * self.nch_ker, 4 * self.nch_ker, stride=2, bnorm=True, brelu=0.2, bdrop=False)
+        self.enc4 = CNR2d(4 * self.nch_ker, 8 * self.nch_ker, stride=2, bnorm=True, brelu=0.2, bdrop=False)
+        self.enc5 = CNR2d(8 * self.nch_ker, 8 * self.nch_ker, stride=2, bnorm=True, brelu=0.2, bdrop=False)
+        self.enc6 = CNR2d(8 * self.nch_ker, 8 * self.nch_ker, stride=2, bnorm=True, brelu=0.2, bdrop=False)
+        self.enc7 = CNR2d(8 * self.nch_ker, 8 * self.nch_ker, stride=2, bnorm=True, brelu=0.2, bdrop=False)
+        self.enc8 = CNR2d(8 * self.nch_ker, 8 * self.nch_ker, stride=2, bnorm=True, brelu=0.0, bdrop=False)
 
-        self.dec8 = DECNR2d(1 * 8 * self.nch_ker, 8 * self.nch_ker, bnorm=True, brelu=0.0, bdrop=0.5)
-        self.dec7 = DECNR2d(2 * 8 * self.nch_ker, 8 * self.nch_ker, bnorm=True, brelu=0.0, bdrop=0.5)
-        self.dec6 = DECNR2d(2 * 8 * self.nch_ker, 8 * self.nch_ker, bnorm=True, brelu=0.0, bdrop=0.5)
-        self.dec5 = DECNR2d(2 * 8 * self.nch_ker, 8 * self.nch_ker, bnorm=True, brelu=0.0, bdrop=0.0)
-        self.dec4 = DECNR2d(2 * 8 * self.nch_ker, 4 * self.nch_ker, bnorm=True, brelu=0.0, bdrop=0.0)
-        self.dec3 = DECNR2d(2 * 4 * self.nch_ker, 2 * self.nch_ker, bnorm=True, brelu=0.0, bdrop=0.0)
-        self.dec2 = DECNR2d(2 * 2 * self.nch_ker, 1 * self.nch_ker, bnorm=True, brelu=0.0, bdrop=0.0)
-        self.dec1 = DECNR2d(2 * 1 * self.nch_ker, 1 * self.nch_out, bnorm=False, brelu=0.0, bdrop=0.0)
+        self.dec8 = DECNR2d(1 * 8 * self.nch_ker, 8 * self.nch_ker, stride=2, bnorm=True, brelu=0.0, bdrop=0.5)
+        self.dec7 = DECNR2d(2 * 8 * self.nch_ker, 8 * self.nch_ker, stride=2, bnorm=True, brelu=0.0, bdrop=0.5)
+        self.dec6 = DECNR2d(2 * 8 * self.nch_ker, 8 * self.nch_ker, stride=2, bnorm=True, brelu=0.0, bdrop=0.5)
+        self.dec5 = DECNR2d(2 * 8 * self.nch_ker, 8 * self.nch_ker, stride=2, bnorm=True, brelu=0.0, bdrop=False)
+        self.dec4 = DECNR2d(2 * 8 * self.nch_ker, 4 * self.nch_ker, stride=2, bnorm=True, brelu=0.0, bdrop=False)
+        self.dec3 = DECNR2d(2 * 4 * self.nch_ker, 2 * self.nch_ker, stride=2, bnorm=True, brelu=0.0, bdrop=False)
+        self.dec2 = DECNR2d(2 * 2 * self.nch_ker, 1 * self.nch_ker, stride=2, bnorm=True, brelu=0.0, bdrop=False)
+        self.dec1 = Conv2d(2 * 1 * self.nch_ker, 1 * self.nch_out, stride=1)
+        # self.dec1 = DECNR2d(2 * 1 * self.nch_ker, 1 * self.nch_out, bnorm=False, brelu=0.0, bdrop=False)
 
     def forward(self, x):
 
