@@ -1,9 +1,13 @@
 import argparse
 
+import torch.backends.cudnn as cudnn
 from train_w_discrim import *
 from utils import *
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
+
+cudnn.benchmark = True
+cudnn.fastest = True
 
 ## setup parse
 parser = argparse.ArgumentParser(description='Train the pix2pix network',

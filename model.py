@@ -30,7 +30,7 @@ class UNet(nn.Module):
         self.dec4 = DECNR2d(2 * 8 * self.nch_ker, 4 * self.nch_ker, stride=2, bnorm=True, brelu=0.0, bdrop=False)
         self.dec3 = DECNR2d(2 * 4 * self.nch_ker, 2 * self.nch_ker, stride=2, bnorm=True, brelu=0.0, bdrop=False)
         self.dec2 = DECNR2d(2 * 2 * self.nch_ker, 1 * self.nch_ker, stride=2, bnorm=True, brelu=0.0, bdrop=False)
-        self.dec1 = Conv2d(2 * 1 * self.nch_ker, 1 * self.nch_out, stride=1)
+        self.dec1 = Deconv2d(2 * 1 * self.nch_ker, 1 * self.nch_out, stride=2)
         # self.dec1 = DECNR2d(2 * 1 * self.nch_ker, 1 * self.nch_out, bnorm=False, brelu=0.0, bdrop=False)
 
     def forward(self, x):
