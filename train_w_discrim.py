@@ -109,8 +109,8 @@ class Train:
         dataset_train = PtDataset(dir_data_train, transform=self.preprocess)
         dataset_val = PtDataset(dir_data_val, transform=transforms.Compose([Nomalize(), ToTensor()]))
 
-        loader_train = torch.utils.data.DataLoader(dataset_train, batch_size=batch_size, shuffle=True, num_workers=0)
-        loader_val = torch.utils.data.DataLoader(dataset_val, batch_size=batch_size, shuffle=False, num_workers=0)
+        loader_train = torch.utils.data.DataLoader(dataset_train, batch_size=batch_size, shuffle=True, num_workers=4)
+        loader_val = torch.utils.data.DataLoader(dataset_val, batch_size=batch_size, shuffle=False, num_workers=4)
 
         num_train = len(dataset_train)
         num_val = len(dataset_val)
@@ -136,8 +136,7 @@ class Train:
         optimG = torch.optim.Adam(paramsG, lr=learning_rate, betas=(self.beta1, 0.999))
         optimD = torch.optim.Adam(paramsD, lr=learning_rate, betas=(self.beta1, 0.999))
 
-        # schedG = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        #     optimG, 'min', factor=0.5, patience=20, verbose=True)
+        schedG = torch.optim.lr_scheduler.ReduceLROnPlateau(optimG, 'min', factor=0.5, patience=20, verbose=True)
         # schedD = torch.optim.lr_scheduler.ReduceLROnPlateau(
         #     optimD, 'min', factor=0.5, patience=20, verbose=True)
         # scheduler = torch.optim.lr_scheduler.ExponentialLR(optim, gamma=0.995)
@@ -150,6 +149,7 @@ class Train:
 
         ## run train
         # global_step = 0
+
         for epoch in range(st_epoch + 1, num_epoch + 1):
             ## training phase
             netG.train()
@@ -160,6 +160,9 @@ class Train:
             discrim_loss_train = 0
 
             for i, data in enumerate(loader_train, 1):
+                def should(freq):
+                    return freq > 0 and (i % freq == 0 or i == num_batch_train)
+
                 input = data['input'].to(device)
                 label = data['label'].to(device)
 
@@ -206,28 +209,47 @@ class Train:
                 print('TRAIN: EPOCH %d: BATCH %04d/%04d: GEN L1: %.6f GEN GAN: %.6f DISCRIM: %.6f'
                       % (epoch, i, num_batch_train, gen_loss_l1_train / i, gen_loss_gan_train / i, discrim_loss_train / i))
 
+                if should(50):
+                    ## show output
+                    input = self.deprocess(input)
+                    output = self.deprocess(output)
+                    label = self.deprocess(label)
+
+                    writer_train.add_images('input', input, num_batch_train * (epoch - 1) + i, dataformats='NHWC')
+                    writer_train.add_images('ouput', output, num_batch_train * (epoch - 1) + i, dataformats='NHWC')
+                    writer_train.add_images('label', label, num_batch_train * (epoch - 1) + i, dataformats='NHWC')
+                    # add_figure(output, label, writer_train, epoch=epoch, ylabel='Density', xlabel='Radius', namescope='train/gen')
+
+                    ## show predict
+                    pred_fake = self.deprocess(pred_fake)
+                    pred_real = self.deprocess(pred_real)
+
+                    writer_train.add_images('pred_fake', pred_fake, num_batch_train * (epoch - 1) + i, dataformats='NHWC')
+                    writer_train.add_images('pred_real', pred_real, num_batch_train * (epoch - 1) + i, dataformats='NHWC')
+                    # add_figure(pred_fake, pred_real, writer_train, epoch=epoch, ylabel='Probability', xlabel='Radius', namescope='train/discrim')
+
 
             writer_train.add_scalar('gen_loss_L1', gen_loss_l1_train / num_batch_train, epoch)
             writer_train.add_scalar('gen_loss_GAN', gen_loss_gan_train / num_batch_train, epoch)
             writer_train.add_scalar('discrim_loss', discrim_loss_train / num_batch_train, epoch)
 
-            ## show output
-            input = self.deprocess(input)
-            output = self.deprocess(output)
-            label = self.deprocess(label)
-
-            writer_train.add_images('input', input, epoch, dataformats='NHWC')
-            writer_train.add_images('ouput', output, epoch, dataformats='NHWC')
-            writer_train.add_images('label', label, epoch, dataformats='NHWC')
-            # add_figure(output, label, writer_train, epoch=epoch, ylabel='Density', xlabel='Radius', namescope='train/gen')
-
-            ## show predict
-            pred_fake = self.deprocess(pred_fake)
-            pred_real = self.deprocess(pred_real)
-
-            writer_train.add_images('pred_fake', pred_fake, epoch, dataformats='NHWC')
-            writer_train.add_images('pred_real', pred_real, epoch, dataformats='NHWC')
-            # add_figure(pred_fake, pred_real, writer_train, epoch=epoch, ylabel='Probability', xlabel='Radius', namescope='train/discrim')
+            # ## show output
+            # input = self.deprocess(input)
+            # output = self.deprocess(output)
+            # label = self.deprocess(label)
+            #
+            # writer_train.add_images('input', input, epoch, dataformats='NHWC')
+            # writer_train.add_images('ouput', output, epoch, dataformats='NHWC')
+            # writer_train.add_images('label', label, epoch, dataformats='NHWC')
+            # # add_figure(output, label, writer_train, epoch=epoch, ylabel='Density', xlabel='Radius', namescope='train/gen')
+            #
+            # ## show predict
+            # pred_fake = self.deprocess(pred_fake)
+            # pred_real = self.deprocess(pred_real)
+            #
+            # writer_train.add_images('pred_fake', pred_fake, epoch, dataformats='NHWC')
+            # writer_train.add_images('pred_real', pred_real, epoch, dataformats='NHWC')
+            # # add_figure(pred_fake, pred_real, writer_train, epoch=epoch, ylabel='Probability', xlabel='Radius', namescope='train/discrim')
 
             ## validation phase
             with torch.no_grad():
@@ -264,30 +286,49 @@ class Train:
                     print('VALID: EPOCH %d: BATCH %04d/%04d: GEN L1: %.6f GEN GAN: %.6f DISCRIM: %.6f'
                           % (epoch, i, num_batch_val, gen_loss_l1_val / i, gen_loss_gan_val / i, discrim_loss_val / i))
 
+                    if should(50):
+                        ## show output
+                        input = self.deprocess(input)
+                        output = self.deprocess(output)
+                        label = self.deprocess(label)
+
+                        writer_val.add_images('input', input, num_batch_train * (epoch - 1) + i, dataformats='NHWC')
+                        writer_val.add_images('ouput', output, num_batch_train * (epoch - 1) + i, dataformats='NHWC')
+                        writer_val.add_images('label', label, num_batch_train * (epoch - 1) + i, dataformats='NHWC')
+                        # add_figure(output, label, writer_val, epoch=epoch, ylabel='Density', xlabel='Radius', namescope='train/gen')
+
+                        ## show predict
+                        pred_fake = self.deprocess(pred_fake)
+                        pred_real = self.deprocess(pred_real)
+
+                        writer_val.add_images('pred_fake', pred_fake, num_batch_train * (epoch - 1) + i, dataformats='NHWC')
+                        writer_val.add_images('pred_real', pred_real, num_batch_train * (epoch - 1) + i, dataformats='NHWC')
+                        # add_figure(pred_fake, pred_real, writer_val, epoch=epoch, ylabel='Probability', xlabel='Radius', namescope='train/discrim')
+
                 writer_val.add_scalar('gen_loss_L1', gen_loss_l1_val / num_batch_val, epoch)
                 writer_val.add_scalar('gen_loss_GAN', gen_loss_gan_val / num_batch_val, epoch)
                 writer_val.add_scalar('discrim_loss', discrim_loss_val / num_batch_val, epoch)
 
-                ## show output
-                input = self.deprocess(input)
-                output = self.deprocess(output)
-                label = self.deprocess(label)
-
-                writer_val.add_images('input', input, epoch, dataformats='NHWC')
-                writer_val.add_images('ouput', output, epoch, dataformats='NHWC')
-                writer_val.add_images('label', label, epoch, dataformats='NHWC')
-                # add_figure(output, label, writer_train, epoch=epoch, ylabel='Density', xlabel='Radius', namescope='train/gen')
-
-                ## show predict
-                pred_fake = self.deprocess(pred_fake)
-                pred_real = self.deprocess(pred_real)
-
-                writer_val.add_images('pred_fake', pred_fake, epoch, dataformats='NHWC')
-                writer_val.add_images('pred_real', pred_real, epoch, dataformats='NHWC')
-                # add_figure(pred_fake, pred_real, writer_train, epoch=epoch, ylabel='Probability', xlabel='Radius', namescope='train/discrim')
+                # ## show output
+                # input = self.deprocess(input)
+                # output = self.deprocess(output)
+                # label = self.deprocess(label)
+                #
+                # writer_val.add_images('input', input, epoch, dataformats='NHWC')
+                # writer_val.add_images('ouput', output, epoch, dataformats='NHWC')
+                # writer_val.add_images('label', label, epoch, dataformats='NHWC')
+                # # add_figure(output, label, writer_train, epoch=epoch, ylabel='Density', xlabel='Radius', namescope='train/gen')
+                #
+                # ## show predict
+                # pred_fake = self.deprocess(pred_fake)
+                # pred_real = self.deprocess(pred_real)
+                #
+                # writer_val.add_images('pred_fake', pred_fake, epoch, dataformats='NHWC')
+                # writer_val.add_images('pred_real', pred_real, epoch, dataformats='NHWC')
+                # # add_figure(pred_fake, pred_real, writer_train, epoch=epoch, ylabel='Probability', xlabel='Radius', namescope='train/discrim')
 
                 ## update schduler
-                # schedG.step(gen_loss_l1_val)
+                schedG.step(gen_loss_l1_val)
                 # schedD.step(gen_loss_l1_val)
 
             ## save

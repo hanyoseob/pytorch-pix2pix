@@ -114,6 +114,15 @@ class Conv2d(nn.Module):
         return self.conv(x)
 
 
+class Deconv2d(nn.Module):
+    def __init__(self, nch_in, nch_out, kernel_size=4, stride=1, padding=1):
+        super(Deconv2d, self).__init__()
+        self.conv = nn.ConvTranspose2d(nch_in, nch_out, kernel_size=kernel_size, stride=stride, padding=padding)
+
+    def forward(self, x):
+        return self.conv(x)
+
+
 class Linear(nn.Module):
     def __init__(self, nch_in, nch_out):
         super(Linear, self).__init__()
