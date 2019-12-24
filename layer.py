@@ -73,7 +73,7 @@ class CNR2d(nn.Module):
             # layers.append(nn.InstanceNorm2d(nch_out))
 
         if brelu:
-            layers.append(nn.LeakyReLU(brelu))
+            layers.append(nn.LeakyReLU(brelu, True))
         else:
             layers.append(nn.ReLU())
 
@@ -94,9 +94,9 @@ class DECNR2d(nn.Module):
             layers.append(nn.BatchNorm2d(nch_out))
             # layers.append(nn.InstanceNorm2d(nch_out))
         if brelu:
-            layers.append(nn.LeakyReLU(brelu))
+            layers.append(nn.LeakyReLU(brelu, True))
         if bdrop:
-            layers.append(nn.Dropout2d(1 - bdrop))
+            layers.append(nn.Dropout2d(bdrop))
 
         self.cbr = nn.Sequential(*layers)
 
