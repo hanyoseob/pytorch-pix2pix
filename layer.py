@@ -75,7 +75,7 @@ class CNR2d(nn.Module):
         if brelu:
             layers.append(nn.LeakyReLU(brelu, True))
         else:
-            layers.append(nn.ReLU())
+            layers.append(nn.ReLU(True))
 
         if bdrop:
             layers.append(nn.Dropout2d(bdrop))
@@ -95,6 +95,9 @@ class DECNR2d(nn.Module):
             layers.append(nn.InstanceNorm2d(nch_out))
         if brelu:
             layers.append(nn.LeakyReLU(brelu, True))
+        else:
+            layers.append(nn.ReLU(True))
+
         if bdrop:
             layers.append(nn.Dropout2d(bdrop))
 
