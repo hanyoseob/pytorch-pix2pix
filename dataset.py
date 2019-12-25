@@ -102,9 +102,9 @@ class RandomFlip(object):
             input = np.fliplr(input)
             label = np.fliplr(label)
 
-        if np.random.rand() > 0.5:
-            input = np.flipud(input)
-            label = np.flipud(label)
+        # if np.random.rand() > 0.5:
+        #     input = np.flipud(input)
+        #     label = np.flipud(label)
 
         return {'input': input, 'label': label}
 
