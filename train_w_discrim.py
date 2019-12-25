@@ -136,7 +136,7 @@ class Train:
         optimG = torch.optim.Adam(paramsG, lr=learning_rate, betas=(self.beta1, 0.999))
         optimD = torch.optim.Adam(paramsD, lr=learning_rate, betas=(self.beta1, 0.999))
 
-        schedG = torch.optim.lr_scheduler.ReduceLROnPlateau(optimG, 'min', factor=0.5, patience=20, verbose=True)
+        # schedG = torch.optim.lr_scheduler.ReduceLROnPlateau(optimG, 'min', factor=0.5, patience=20, verbose=True)
         # schedD = torch.optim.lr_scheduler.ReduceLROnPlateau(
         #     optimD, 'min', factor=0.5, patience=20, verbose=True)
         # scheduler = torch.optim.lr_scheduler.ExponentialLR(optim, gamma=0.995)
@@ -328,7 +328,7 @@ class Train:
                 # # add_figure(pred_fake, pred_real, writer_train, epoch=epoch, ylabel='Probability', xlabel='Radius', namescope='train/discrim')
 
                 ## update schduler
-                schedG.step(gen_loss_l1_val)
+                # schedG.step(gen_loss_l1_val)
                 # schedD.step(gen_loss_l1_val)
 
             ## save
