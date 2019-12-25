@@ -13,13 +13,12 @@ cudnn.fastest = True
 parser = argparse.ArgumentParser(description='Train the pix2pix network',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
+parser.add_argument('--gpu_ids', default='-1', dest='gpu_ids')
+
 parser.add_argument('--mode', default='train', choices=['train', 'test'], dest='mode')
 parser.add_argument('--train_continue', default='off', choices=['on', 'off'], dest='train_continue')
 
 parser.add_argument('--scope', default='pix2pix_facades', dest='scope')
-# parser.add_argument('--scope', default='trans2dens_1linear_l1', dest='scope')
-# parser.add_argument('--scope', default='trans2dens_1linear_l2', dest='scope')
-# parser.add_argument('--scope', default='trans2dens_autoencoder', dest='scope')
 
 parser.add_argument('--dir_checkpoint', default='./checkpoints', dest='dir_checkpoint')
 parser.add_argument('--dir_log', default='./log', dest='dir_log')
@@ -30,9 +29,14 @@ parser.add_argument('--dir_result', default='./result', dest='dir_result')
 parser.add_argument('--num_epoch', type=int,  default=1000, dest='num_epoch')
 parser.add_argument('--batch_size', type=int, default=1, dest='batch_size')
 
-parser.add_argument('--learning_rate', type=float, default=1e-3, dest='learning_rate')
+parser.add_argument('--lr_G', type=float, default=1e-3, dest='lr_G')
+parser.add_argument('--lr_D', type=float, default=1e-3, dest='lr_D')
 
-parser.add_argument('--mu', type=float, default=1e-1, dest='mu')
+parser.add_argument('--lr_policy', type=str, default='linear', choices=['linear', 'step', 'plateau', 'cosine'], dest='lr_policy')
+parser.add_argument('--n_epochs', type=int, default=100, dest='n_epochs')
+parser.add_argument('--n_epochs_decay', type=int, default=100, dest='n_epochs_decay')
+parser.add_argument('--lr_decay_iters', type=int, default=50, dest='lr_decay_iters')
+
 parser.add_argument('--wgt_l1', type=float, default=1e2, dest='wgt_l1')
 parser.add_argument('--wgt_gan', type=float, default=1e0, dest='wgt_gan')
 
@@ -50,6 +54,8 @@ parser.add_argument('--nch_load', type=int, default=3, dest='nch_load')
 parser.add_argument('--ny_out', type=int, default=256, dest='ny_out')
 parser.add_argument('--nx_out', type=int, default=256, dest='nx_out')
 parser.add_argument('--nch_out', type=int, default=3, dest='nch_out')
+
+parser.add_argument('--nch_ker', type=int, default=64, dest='nch_ker')
 
 parser.add_argument('--data_type', default='float32', dest='data_type')
 

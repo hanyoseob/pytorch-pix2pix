@@ -2,6 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 import os
 import logging
+import torch
 # import argparse
 
 ''''
@@ -12,6 +13,16 @@ class Parser:
     def __init__(self, parser):
         self.__parser = parser
         self.__args = parser.parse_args()
+
+        # set gpu ids
+        str_ids = self.__args.gpu_ids.split(',')
+        self.__args.gpu_ids = []
+        for str_id in str_ids:
+            id = int(str_id)
+            if id >= 0:
+                self.__args.gpu_ids.append(id)
+        # if len(self.__args.gpu_ids) > 0:
+        #     torch.cuda.set_device(self.__args.gpu_ids[0])
 
     def get_parser(self):
         return self.__parser
