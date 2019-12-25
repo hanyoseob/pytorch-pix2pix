@@ -39,8 +39,8 @@ parser.add_argument('--n_epochs', type=int, default=100, dest='n_epochs')
 parser.add_argument('--n_epochs_decay', type=int, default=100, dest='n_epochs_decay')
 parser.add_argument('--lr_decay_iters', type=int, default=50, dest='lr_decay_iters')
 
-parser.add_argument('--wgt_l1', type=float, default=1e2, dest='wgt_l1')
-parser.add_argument('--wgt_gan', type=float, default=1e0, dest='wgt_gan')
+parser.add_argument('--wgt_l1', type=float, default=1e0, dest='wgt_l1')
+parser.add_argument('--wgt_gan', type=float, default=1e-1, dest='wgt_gan')
 
 parser.add_argument('--optim', default='adam', choices=['sgd', 'adam', 'rmsprop'], dest='optim')
 parser.add_argument('--beta1', default=0.5, dest='beta1')

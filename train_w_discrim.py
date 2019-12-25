@@ -204,8 +204,7 @@ class Train:
 
                 disc_loss_real = fn_GAN(pred_real, torch.ones_like(pred_real))
                 disc_loss_fake = fn_GAN(pred_fake, torch.zeros_like(pred_fake))
-                # disc_loss = 0.5 * (disc_loss_real + disc_loss_fake)
-                disc_loss = (disc_loss_real + disc_loss_fake)
+                disc_loss = 0.5 * (disc_loss_real + disc_loss_fake)
 
                 disc_loss.backward()
                 optimD.step()
@@ -232,7 +231,7 @@ class Train:
                 disc_loss_real_train += disc_loss_real.item()
 
                 print('TRAIN: EPOCH %d: BATCH %04d/%04d: '
-                      'GEN L1: %.6f GEN GAN: %.6f DISC FAKE: %.6f DISC REAL: %.6f'
+                      'GEN L1: %.4f GEN GAN: %.4f DISC FAKE: %.4f DISC REAL: %.4f'
                       % (epoch, i, num_batch_train,
                          gen_loss_l1_train / i, gen_loss_gan_train / i, disc_loss_fake_train / i, disc_loss_real_train / i))
 
@@ -282,7 +281,7 @@ class Train:
 
                     disc_loss_real = fn_GAN(pred_real, torch.ones_like(pred_real))
                     disc_loss_fake = fn_GAN(pred_fake, torch.zeros_like(pred_fake))
-                    disc_loss = (disc_loss_real + disc_loss_fake)
+                    disc_loss = 0.5 * (disc_loss_real + disc_loss_fake)
 
                     gen_loss_gan = fn_GAN(pred_fake, torch.ones_like(pred_fake))
                     gen_loss_l1 = fn_L1(output, label)
@@ -294,7 +293,7 @@ class Train:
                     disc_loss_fake_val += disc_loss_fake.item()
 
                     print('VALID: EPOCH %d: BATCH %04d/%04d: '
-                          'GEN L1: %.6f GEN GAN: %.6f DISC FAKE: %.6f DISC REAL: %.6f'
+                          'GEN L1: %.4f GEN GAN: %.4f DISC FAKE: %.4f DISC REAL: %.4f'
                           % (epoch, i, num_batch_val,
                              gen_loss_l1_val / i, gen_loss_gan_val / i, disc_loss_fake_val / i, disc_loss_real_val / i))
 
