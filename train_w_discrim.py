@@ -51,13 +51,13 @@ class Train:
         self.data_type = args.data_type
 
         self.gpu_ids = args.gpu_ids
+        self.num_freq = args.num_freq
 
-        if torch.cuda.is_available():
+        if self.gpu_ids and torch.cuda.is_available():
             self.device = torch.device("cuda:%d" % self.gpu_ids[0])
             torch.cuda.set_device(self.gpu_ids[0])
         else:
             self.device = torch.device("cpu")
-            self.gpu_ids = [-1]
 
     def save(self, netG, netD, epoch):
         dir_checkpoint = os.path.join(self.dir_checkpoint, self.scope)
@@ -120,6 +120,8 @@ class Train:
         nch_in = self.nch_in
         nch_out = self.nch_out
         nch_ker = self.nch_ker
+
+        num_freq = self.num_freq
 
         ## setup dataset
         dataset_train = PtDataset(dir_data_train, transform=self.preprocess)
@@ -202,7 +204,8 @@ class Train:
 
                 disc_loss_real = fn_GAN(pred_real, torch.ones_like(pred_real))
                 disc_loss_fake = fn_GAN(pred_fake, torch.zeros_like(pred_fake))
-                disc_loss = 0.5 * (disc_loss_real + disc_loss_fake)
+                # disc_loss = 0.5 * (disc_loss_real + disc_loss_fake)
+                disc_loss = (disc_loss_real + disc_loss_fake)
 
                 disc_loss.backward()
                 optimD.step()
@@ -233,7 +236,7 @@ class Train:
                       % (epoch, i, num_batch_train,
                          gen_loss_l1_train / i, gen_loss_gan_train / i, disc_loss_fake_train / i, disc_loss_real_train / i))
 
-                if should(50):
+                if should(num_freq):
                     ## show output
                     input = self.deprocess(input)
                     output = self.deprocess(output)
@@ -279,7 +282,7 @@ class Train:
 
                     disc_loss_real = fn_GAN(pred_real, torch.ones_like(pred_real))
                     disc_loss_fake = fn_GAN(pred_fake, torch.zeros_like(pred_fake))
-                    disc_loss = 0.5 * (disc_loss_real + disc_loss_fake)
+                    disc_loss = (disc_loss_real + disc_loss_fake)
 
                     gen_loss_gan = fn_GAN(pred_fake, torch.ones_like(pred_fake))
                     gen_loss_l1 = fn_L1(output, label)
@@ -295,7 +298,7 @@ class Train:
                           % (epoch, i, num_batch_val,
                              gen_loss_l1_val / i, gen_loss_gan_val / i, disc_loss_fake_val / i, disc_loss_real_val / i))
 
-                    if should(50):
+                    if should(num_freq):
                         ## show output
                         input = self.deprocess(input)
                         output = self.deprocess(output)
