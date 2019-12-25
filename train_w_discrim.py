@@ -49,6 +49,7 @@ class Train:
         self.nch_ker = args.nch_ker
 
         self.data_type = args.data_type
+        self.norm = args.norm
 
         self.gpu_ids = args.gpu_ids
         self.num_freq = args.num_freq
@@ -122,6 +123,7 @@ class Train:
         nch_ker = self.nch_ker
 
         num_freq = self.num_freq
+        norm = self.norm
 
         ## setup dataset
         dataset_train = PtDataset(dir_data_train, transform=self.preprocess)
@@ -137,8 +139,8 @@ class Train:
         num_batch_val = int((num_val / batch_size) + ((num_val % batch_size) != 0))
 
         ## setup network
-        netG = UNet(nch_in, nch_out, nch_ker)
-        netD = Discriminator(2*nch_in, nch_ker)
+        netG = UNet(nch_in, nch_out, nch_ker, norm)
+        netD = Discriminator(2*nch_in, nch_ker, norm)
 
         init_net(netG, init_type='normal', init_gain=0.02, gpu_ids=gpu_ids)
         init_net(netD, init_type='normal', init_gain=0.02, gpu_ids=gpu_ids)
@@ -165,8 +167,8 @@ class Train:
         # schedD = torch.optim.lr_scheduler.ReduceLROnPlateau(
         #     optimD, 'min', factor=0.5, patience=20, verbose=True)
 
-        schedG = torch.optim.lr_scheduler.ExponentialLR(optimG, gamma=0.9)
-        schedD = torch.optim.lr_scheduler.ExponentialLR(optimD, gamma=0.9)
+        # schedG = torch.optim.lr_scheduler.ExponentialLR(optimG, gamma=0.9)
+        # schedD = torch.optim.lr_scheduler.ExponentialLR(optimD, gamma=0.9)
 
         ## setup tensorboard
         writer_train = SummaryWriter(log_dir=log_dir_train)
@@ -268,6 +270,9 @@ class Train:
                 disc_loss_fake_val = 0
 
                 for i, data in enumerate(loader_val, 1):
+                    def should(freq):
+                        return freq > 0 and (i % freq == 0 or i == num_batch_val)
+
                     input = data['input'].to(device)
                     label = data['label'].to(device)
 
@@ -322,8 +327,8 @@ class Train:
                 writer_val.add_scalar('disc_loss_real', disc_loss_real_val / num_batch_val, epoch)
 
             # update schduler
-            schedG.step()
-            schedD.step()
+            # schedG.step()
+            # schedD.step()
 
             ## save
             if (epoch % 10) == 0:

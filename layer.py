@@ -64,21 +64,28 @@ class CNR1d(nn.Module):
 
 
 class CNR2d(nn.Module):
-    def __init__(self, nch_in, nch_out, kerner_size=4, stride=1, padding=1, bnorm=True, brelu=True, bdrop=False):
+    def __init__(self, nch_in, nch_out, kerner_size=4, stride=1, padding=1, norm='bnorm', relu=0.0, drop=0.0):
         super().__init__()
-        layers = [nn.Conv2d(nch_in, nch_out, kernel_size=kerner_size, stride=stride, padding=padding)]
 
-        if bnorm:
-            # layers.append(nn.BatchNorm2d(nch_out))
+        if norm == 'bnorm':
+            bias = False
+        else:
+            bias = True
+
+        layers = [nn.Conv2d(nch_in, nch_out, kernel_size=kerner_size, stride=stride, padding=padding, bias=bias)]
+
+        if norm == 'bnorm':
+            layers.append(nn.BatchNorm2d(nch_out))
+        elif norm == 'inorm':
             layers.append(nn.InstanceNorm2d(nch_out))
 
-        if brelu:
-            layers.append(nn.LeakyReLU(brelu, True))
-        else:
+        if relu != 0.0:
+            layers.append(nn.LeakyReLU(relu, True))
+        elif relu == 0.0:
             layers.append(nn.ReLU(True))
 
-        if bdrop:
-            layers.append(nn.Dropout2d(bdrop))
+        if drop:
+            layers.append(nn.Dropout2d(drop))
 
         self.cbr = nn.Sequential(*layers)
 
@@ -87,25 +94,33 @@ class CNR2d(nn.Module):
 
 
 class DECNR2d(nn.Module):
-    def __init__(self, nch_in, nch_out, kerner_size=4, stride=1, padding=1, bnorm=True, brelu=True, bdrop=False):
+    def __init__(self, nch_in, nch_out, kerner_size=4, stride=1, padding=1, norm='bnorm', relu=0.0, drop=0.0):
         super().__init__()
-        layers = [nn.ConvTranspose2d(nch_in, nch_out, kernel_size=kerner_size, stride=stride, padding=padding)]
-        if bnorm:
-            # layers.append(nn.BatchNorm2d(nch_out))
+
+        if norm == 'bnorm':
+            bias = False
+        else:
+            bias = True
+
+        layers = [nn.ConvTranspose2d(nch_in, nch_out, kernel_size=kerner_size, stride=stride, padding=padding, bias=bias)]
+
+        if norm == 'bnorm':
+            layers.append(nn.BatchNorm2d(nch_out))
+        elif norm == 'inorm':
             layers.append(nn.InstanceNorm2d(nch_out))
-        if brelu:
-            layers.append(nn.LeakyReLU(brelu, True))
+
+        if relu:
+            layers.append(nn.LeakyReLU(relu, True))
         else:
             layers.append(nn.ReLU(True))
 
-        if bdrop:
-            layers.append(nn.Dropout2d(bdrop))
+        if drop:
+            layers.append(nn.Dropout2d(drop))
 
         self.cbr = nn.Sequential(*layers)
 
     def forward(self, x):
         return self.cbr(x)
-
 
 
 class Conv2d(nn.Module):
