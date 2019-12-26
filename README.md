@@ -15,8 +15,3 @@ Then, click http://localhost:[4 digit port number]
 
 * You can change [4 digit port number]
 * 4 digit port number = 6006 (default)
-
-## Prediction
-    >> python display_result.py 
-
-* Before execute, set 'scope = [scope name]' in display_result.py 
