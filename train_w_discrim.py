@@ -13,6 +13,7 @@ class Train:
     def __init__(self, args):
         self.opts = args
 
+        self.mode = args.mode
         self.train_continue = args.train_continue
 
         self.scope = args.scope
@@ -60,28 +61,38 @@ class Train:
         else:
             self.device = torch.device("cpu")
 
-    def save(self, netG, netD, epoch):
+    def save(self, netG, netD, optimG, optimD, epoch):
         dir_checkpoint = os.path.join(self.dir_checkpoint, self.scope)
 
         if not os.path.exists(dir_checkpoint):
             os.makedirs(dir_checkpoint)
 
-        torch.save({'netG': netG.state_dict(), 'netD': netD.state_dict()},
+        torch.save({'netG': netG.state_dict(), 'netD': netD.state_dict(),
+                    'optimG': optimG.state_dict(), 'optimD': optimD.state_dict()},
                    '%s/model_epoch%04d.pth' % (dir_checkpoint, epoch))
 
-    def load(self, netG, netD, epoch=[]):
+    def load(self, netG, netD=[], optimG=[], optimD=[], epoch=[], mode='train'):
         dir_checkpoint = os.path.join(self.dir_checkpoint, self.scope)
 
         if not epoch:
             ckpt = os.listdir(dir_checkpoint)
             ckpt.sort()
-            epoch = int(ckpt[-1].split('epoch')[1].split('.pt')[0])
+            epoch = int(ckpt[-1].split('epoch')[1].split('.pth')[0])
 
-        nets = torch.load('%s/model_epoch%04d.pth' % (dir_checkpoint, epoch))
-        netG.load_state_dict(nets['netG'])
-        netD.load_state_dict(nets['netD'])
+        dict_net = torch.load('%s/model_epoch%04d.pth' % (dir_checkpoint, epoch))
 
-        return netG, netD, epoch
+        if mode == 'train':
+            netG.load_state_dict(dict_net['netG'])
+            netD.load_state_dict(dict_net['netD'])
+            optimG.load_state_dict(dict_net['optimG'])
+            optimD.load_state_dict(dict_net['optimD'])
+
+            return netG, netD, optimG, optimD, epoch
+
+        elif mode == 'test':
+            netG.load_state_dict(dict_net['netG'])
+
+            return netG, epoch
 
     def preprocess(self, data):
         nomalize = Nomalize()
@@ -98,6 +109,8 @@ class Train:
         return denomalize(tonumpy(data))
 
     def train(self):
+        mode = self.mode
+
         dir_data_train = os.path.join(self.dir_data, 'facades', 'train')
         dir_data_val = os.path.join(self.dir_data, 'facades', 'val')
 
@@ -145,11 +158,6 @@ class Train:
         init_net(netG, init_type='normal', init_gain=0.02, gpu_ids=gpu_ids)
         init_net(netD, init_type='normal', init_gain=0.02, gpu_ids=gpu_ids)
 
-        st_epoch = 0
-
-        if train_continue == 'on':
-            netG, netD, st_epoch = self.load(netG, netD)
-
         ## setup loss & optimization
         fn_L1 = nn.L1Loss().to(device) # L1
         fn_GAN = nn.BCELoss().to(device)
@@ -169,6 +177,12 @@ class Train:
 
         # schedG = torch.optim.lr_scheduler.ExponentialLR(optimG, gamma=0.9)
         # schedD = torch.optim.lr_scheduler.ExponentialLR(optimD, gamma=0.9)
+
+        ## load from checkpoints
+        st_epoch = 0
+
+        if train_continue == 'on':
+            netG, netD, optimG, optimD, st_epoch = self.load(netG, netD, optimG, optimD, mode=mode)
 
         ## setup tensorboard
         writer_train = SummaryWriter(log_dir=log_dir_train)
@@ -261,8 +275,10 @@ class Train:
 
             ## validation phase
             with torch.no_grad():
-                netG.eval()
-                netD.eval()
+                # netG.eval()
+                # netD.eval()
+                netG.train()
+                netD.train()
 
                 gen_loss_l1_val = 0
                 gen_loss_gan_val = 0
@@ -332,7 +348,7 @@ class Train:
 
             ## save
             if (epoch % 10) == 0:
-                self.save(netG, netD, epoch)
+                self.save(netG, netD, optimG, optimD, epoch)
                 # torch.save(net.state_dict(), 'Checkpoints/model_epoch_%d.pt' % epoch)
 
         writer_train.close()
@@ -340,72 +356,83 @@ class Train:
 
 
     def test(self, epoch=[]):
+        mode = self.mode
         dir_result = os.path.join(self.dir_result, self.scope)
+        dir_result_save = os.path.join(dir_result, 'images')
+        if not os.path.exists(dir_result_save):
+            os.makedirs(dir_result_save)
 
-        if not os.path.exists(dir_result):
-            os.makedirs(dir_result)
+        dir_data_test = os.path.join(self.dir_data, 'facades', 'test')
 
-        batch_size = 1
+        batch_size = 2
         device = self.device
+        gpu_ids = self.gpu_ids
 
         nch_in = self.nch_in
         nch_out = self.nch_out
+        nch_ker = self.nch_ker
 
-        num_train = 8000
-        num_val = 1000
-        num_test = 1000
-
-        num_batch_train = (num_train / batch_size) + ((num_train % batch_size) != 0)
-        num_batch_val = (num_val / batch_size) + ((num_val % batch_size) != 0)
-        num_batch_test = (num_test / batch_size) + ((num_test % batch_size) != 0)
+        norm = self.norm
 
         ## setup dataset
-        # dataset_test = PtDataset('Data', slice(num_train + num_val, num_train + num_val + num_test),
-        #                                           transform=transforms.Compose([ToTensor()]))
-        dataset_test = PtDataset('Data', slice(num_train + num_val, num_train + num_val + num_test), transform=[])
-        loader_test = torch.utils.data.DataLoader(dataset_test, batch_size=1, shuffle=False, num_workers=0)
+        dataset_test = PtDataset(dir_data_test, transform=self.preprocess)
+
+        loader_test = torch.utils.data.DataLoader(dataset_test, batch_size=batch_size, shuffle=True, num_workers=0)
+
+        num_test = len(dataset_test)
+
+        num_batch_test = int((num_test / batch_size) + ((num_test % batch_size) != 0))
 
         ## setup network
-        net = nn.Linear(nch_in, nch_out)
-        # net = AutoEncoder1d(nch_in, nch_out)
-        net, st_epoch = self.load(net)
+        netG = UNet(nch_in, nch_out, nch_ker, norm)
+        init_net(netG, init_type='normal', init_gain=0.02, gpu_ids=gpu_ids)
 
         ## setup loss & optimization
-        # loss_fn = nn.L1Loss() # L1
-        loss_fn = nn.MSELoss()  # L2
+        fn_L1 = nn.L1Loss().to(device)  # L1
+
+        ## load from checkpoints
+        st_epoch = 0
+
+        netG, st_epoch = self.load(netG, mode=mode)
 
         ## test phase
-        # with torch.no_grad():
-        net.eval()
-        loss_test = 0
-        for i, data in enumerate(loader_test, 1):
-            input = data['input'].to(device)
-            label = data['label'].to(device)
+        with torch.no_grad():
+            # netG.eval()
+            netG.train()
 
-            output = net(input)
-            loss = loss_fn(output, label)
-            # loss_test += loss.item()
-            loss_test += loss.item()
+            gen_loss_l1_test = 0
+            for i, data in enumerate(loader_test, 1):
+                input = data['input'].to(device)
+                label = data['label'].to(device)
 
-            np.save(os.path.join(dir_result, "output_%05d_1d.npy" % (i - 1)), np.float32(np.squeeze(output.detach().numpy())))
+                output = netG(input)
 
-            print('TEST: %d/%d: LOSS: %.6f' % (i, num_batch_test, loss.item()))
-        print('TEST: AVERAGE LOSS: %.6f' % (loss_test / num_batch_test))
+                gen_loss_l1 = fn_L1(output, label)
+                gen_loss_l1_test += gen_loss_l1.item()
+
+                # np.save(os.path.join(dir_result, "output_%05d_1d.npy" % (i - 1)), np.float32(np.squeeze(output.detach().numpy())))
+
+                input = self.deprocess(input)
+                output = self.deprocess(output)
+                label = self.deprocess(label)
+
+                for j in range(batch_size):
+                    name = batch_size * (i - 1) + j
+                    fileset = {'name': name,
+                                'input': "%04d-input.png" % name,
+                                'output': "%04d-output.png" % name,
+                                'label': "%04d-label.png" % name}
+
+                    plt.imsave(os.path.join(dir_result_save, fileset['input']), input[j, :, :, :].squeeze())
+                    plt.imsave(os.path.join(dir_result_save, fileset['output']), output[j, :, :, :].squeeze())
+                    plt.imsave(os.path.join(dir_result_save, fileset['label']), label[j, :, :, :].squeeze())
+
+                    append_index(dir_result, fileset)
 
 
-def add_plot(output, label, writer, epoch=[], ylabel='Density', xlabel='Radius', namescope=[]):
-    fig, ax = plt.subplots()
+                print('TEST: %d/%d: LOSS: %.6f' % (i, num_batch_test, gen_loss_l1.item()))
+            print('TEST: AVERAGE LOSS: %.6f' % (gen_loss_l1_test / num_batch_test))
 
-    ax.plot(output.transpose(1, 0).detach().numpy(), '-')
-    ax.plot(label.transpose(1, 0).detach().numpy(), '--')
-
-    ax.set_xlim(0, 400)
-
-    ax.grid(True)
-    ax.set_ylabel(ylabel)
-    ax.set_xlabel(xlabel)
-
-    writer.add_figure(namescope, fig, epoch)
 
 
 def set_requires_grad(nets, requires_grad=False):
@@ -449,3 +476,43 @@ def get_scheduler(optimizer, opt):
     else:
         return NotImplementedError('learning rate policy [%s] is not implemented', opt.lr_policy)
     return scheduler
+
+
+def append_index(dir_result, fileset, step=False):
+    index_path = os.path.join(dir_result, "index.html")
+    if os.path.exists(index_path):
+        index = open(index_path, "a")
+    else:
+        index = open(index_path, "w")
+        index.write("<html><body><table><tr>")
+        if step:
+            index.write("<th>step</th>")
+        index.write("<th>name</th><th>input</th><th>output</th><th>target</th></tr>")
+
+    # for fileset in filesets:
+    index.write("<tr>")
+
+    if step:
+        index.write("<td>%d</td>" % fileset["step"])
+    index.write("<td>%s</td>" % fileset["name"])
+
+    for kind in ["input", "output", "label"]:
+        index.write("<td><img src='images/%s'></td>" % fileset[kind])
+
+    index.write("</tr>")
+    return index_path
+
+
+def add_plot(output, label, writer, epoch=[], ylabel='Density', xlabel='Radius', namescope=[]):
+    fig, ax = plt.subplots()
+
+    ax.plot(output.transpose(1, 0).detach().numpy(), '-')
+    ax.plot(label.transpose(1, 0).detach().numpy(), '--')
+
+    ax.set_xlim(0, 400)
+
+    ax.grid(True)
+    ax.set_ylabel(ylabel)
+    ax.set_xlabel(xlabel)
+
+    writer.add_figure(namescope, fig, epoch)
