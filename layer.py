@@ -120,10 +120,10 @@ class DECNR2d(nn.Module):
         if drop:
             layers += [nn.Dropout2d(drop)]
 
-        self.cbr = nn.Sequential(*layers)
+        self.decbr = nn.Sequential(*layers)
 
     def forward(self, x):
-        return self.cbr(x)
+        return self.decbr(x)
 
 
 class Conv2d(nn.Module):
