@@ -1,50 +1,62 @@
 import numpy as np
 import torch
 from skimage import transform
+import matplotlib.pyplot as plt
 import os
 
 
-class PtDataset(torch.utils.data.Dataset):
+class Dataset(torch.utils.data.Dataset):
     """
     dataset of image files of the form 
        stuff<number>_trans.pt
        stuff<number>_density.pt
     """
 
-    def __init__(self, data_dir, index_slice=None, transform=None):
+    def __init__(self, data_dir, direction='A2B', data_type='float32', index_slice=None, transform=None):
         self.data_dir = data_dir
         self.transform = transform
+        self.direction = direction
+        self.data_type = data_type
 
-        # f_trans = [f for f in os.listdir(data_dir)
-        #            if f.endswith('trans_1d.pt')]
-        f_trans = [f for f in os.listdir(data_dir)
-                   if f.startswith('input')]
-        f_trans.sort(key=lambda f: int(''.join(filter(str.isdigit, f))))
+        lst_data = os.listdir(data_dir)
 
-        # f_density = [f for f in os.listdir(data_dir)
-        #              if f.endswith('density_1d.pt')]
-        f_density = [f for f in os.listdir(data_dir)
-                     if f.startswith('label')]
-        f_density.sort(key=lambda f: int(''.join(filter(str.isdigit, f))))
+        # f_trans = [f for f in os.listdir(data_dir) if f.startswith('input')]
+        # f_trans.sort(key=lambda f: int(''.join(filter(str.isdigit, f))))
+        #
+        # f_density = [f for f in os.listdir(data_dir) if f.startswith('label')]
+        # f_density.sort(key=lambda f: int(''.join(filter(str.isdigit, f))))
 
         if index_slice:
-            f_trans = f_trans[index_slice]
-            f_density = f_density[index_slice]
+            lst_data = lst_data[index_slice]
+            # f_trans = f_trans[index_slice]
+            # f_density = f_density[index_slice]
 
-        self.names = (f_trans, f_density)
+        # self.names = (f_trans, f_density)
+        self.names = lst_data
 
     def __getitem__(self, index):
+        data = plt.imread(os.path.join(self.data_dir, self.names[index]))
+
         # x = torch.load(os.path.join(self.data_dir, self.names[0][index]))
         # y = torch.load(os.path.join(self.data_dir, self.names[1][index]))
-        x = np.load(os.path.join(self.data_dir, self.names[0][index]))
-        y = np.load(os.path.join(self.data_dir, self.names[1][index]))
+        # x = np.load(os.path.join(self.data_dir, self.names[0][index]))
+        # y = np.load(os.path.join(self.data_dir, self.names[1][index]))
         # x = x.to(self.device)
         # y = y.to(self.device)
+
+        sz = int(data.shape[1]/2)
+
+        if self.data_type == 'float32':
+            dataA = data[:, :sz, :].astype(np.float32)
+            dataB = data[:, sz:, :].astype(np.float32)
 
         # x = np.expand_dims(np.expand_dims(x, axis=1), axis=2)
         # y = np.expand_dims(np.expand_dims(y, axis=1), axis=2)
 
-        data = {'input': x, 'label': y}
+        if self.direction == 'A2B':
+            data = {'dataA': dataA, 'dataB': dataB}
+        else:
+            data = {'dataA': dataB, 'dataB': dataA}
 
         if self.transform:
             data = self.transform(data)
@@ -52,7 +64,7 @@ class PtDataset(torch.utils.data.Dataset):
         return data
 
     def __len__(self):
-        return len(self.names[0])
+        return len(self.names)
 
 
 class ToTensor(object):
@@ -67,10 +79,10 @@ class ToTensor(object):
         #
         # return data
 
-        input, label = data['input'], data['label']
-        input = input.transpose((2, 0, 1)).astype(np.float32)
-        label = label.transpose((2, 0, 1)).astype(np.float32)
-        return {'input': torch.from_numpy(input), 'label': torch.from_numpy(label)}
+        dataA, dataB = data['dataA'], data['dataB']
+        dataA = dataA.transpose((2, 0, 1)).astype(np.float32)
+        dataB = dataB.transpose((2, 0, 1)).astype(np.float32)
+        return {'dataA': torch.from_numpy(dataA), 'dataB': torch.from_numpy(dataB)}
 
 
 class Nomalize(object):
@@ -82,10 +94,10 @@ class Nomalize(object):
         #
         # return data
 
-        input, label = data['input'], data['label']
-        input = 2 * (input / 255) - 1
-        label = 2 * (label / 255) - 1
-        return {'input': input, 'label': label}
+        dataA, dataB = data['dataA'], data['dataB']
+        dataA = 2 * (dataA / 255) - 1
+        dataB = 2 * (dataB / 255) - 1
+        return {'dataA': dataA, 'dataB': dataB}
 
 
 class RandomFlip(object):
@@ -96,17 +108,17 @@ class RandomFlip(object):
         #     data[key] = 2 * (value / 255) - 1
         #
         # return data
-        input, label = data['input'], data['label']
+        dataA, dataB = data['dataA'], data['dataB']
 
         if np.random.rand() > 0.5:
-            input = np.fliplr(input)
-            label = np.fliplr(label)
+            dataA = np.fliplr(dataA)
+            dataB = np.fliplr(dataB)
 
         # if np.random.rand() > 0.5:
-        #     input = np.flipud(input)
-        #     label = np.flipud(label)
+        #     dataA = np.flipud(dataA)
+        #     dataB = np.flipud(dataB)
 
-        return {'input': input, 'label': label}
+        return {'dataA': dataA, 'dataB': dataB}
 
 
 class Rescale(object):
@@ -124,9 +136,9 @@ class Rescale(object):
     self.output_size = output_size
 
   def __call__(self, data):
-    input, label = data['input'], data['label']
+    dataA, dataB = data['dataA'], data['dataB']
 
-    h, w = input.shape[:2]
+    h, w = dataA.shape[:2]
 
     if isinstance(self.output_size, int):
       if h > w:
@@ -138,10 +150,10 @@ class Rescale(object):
 
     new_h, new_w = int(new_h), int(new_w)
 
-    input = transform.resize(input, (new_h, new_w))
-    label = transform.resize(label, (new_h, new_w))
+    dataA = transform.resize(dataA, (new_h, new_w))
+    dataB = transform.resize(dataB, (new_h, new_w))
 
-    return {'input': input, 'label': label}
+    return {'dataA': dataA, 'dataB': dataB}
 
 
 class RandomCrop(object):
@@ -161,18 +173,18 @@ class RandomCrop(object):
       self.output_size = output_size
 
   def __call__(self, data):
-    input, label = data['input'], data['label']
+    dataA, dataB = data['dataA'], data['dataB']
 
-    h, w = input.shape[:2]
+    h, w = dataA.shape[:2]
     new_h, new_w = self.output_size
 
     top = np.random.randint(0, h - new_h)
     left = np.random.randint(0, w - new_w)
 
-    input = input[top: top + new_h, left: left + new_w]
-    label = label[top: top + new_h, left: left + new_w]
+    dataA = dataA[top: top + new_h, left: left + new_w]
+    dataB = dataB[top: top + new_h, left: left + new_w]
 
-    return {'input': input, 'label': label}
+    return {'dataA': dataA, 'dataB': dataB}
 
 
 class ToNumpy(object):
