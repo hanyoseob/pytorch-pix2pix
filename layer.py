@@ -124,18 +124,18 @@ class DECNR2d(nn.Module):
 
 
 class Conv2d(nn.Module):
-    def __init__(self, nch_in, nch_out, kernel_size=4, stride=1, padding=1):
+    def __init__(self, nch_in, nch_out, kernel_size=4, stride=1, padding=1, bias=True):
         super(Conv2d, self).__init__()
-        self.conv = nn.Conv2d(nch_in, nch_out, kernel_size=kernel_size, stride=stride, padding=padding)
+        self.conv = nn.Conv2d(nch_in, nch_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=bias)
 
     def forward(self, x):
         return self.conv(x)
 
 
 class Deconv2d(nn.Module):
-    def __init__(self, nch_in, nch_out, kernel_size=4, stride=1, padding=1):
+    def __init__(self, nch_in, nch_out, kernel_size=4, stride=1, padding=1, bias=True):
         super(Deconv2d, self).__init__()
-        self.deconv = nn.ConvTranspose2d(nch_in, nch_out, kernel_size=kernel_size, stride=stride, padding=padding)
+        self.deconv = nn.ConvTranspose2d(nch_in, nch_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=bias)
 
     def forward(self, x):
         return self.deconv(x)

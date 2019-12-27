@@ -57,8 +57,6 @@ class Train:
 
         self.direction = args.direction
 
-        self.data_type = args.data_type
-
         if self.gpu_ids and torch.cuda.is_available():
             self.device = torch.device("cuda:%d" % self.gpu_ids[0])
             torch.cuda.set_device(self.gpu_ids[0])
