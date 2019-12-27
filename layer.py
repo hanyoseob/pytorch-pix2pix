@@ -51,11 +51,12 @@ class CNR1d(nn.Module):
     def __init__(self, nch_in, nch_out, bnorm=True, brelu=True):
         super().__init__()
 
-        layers = nn.Linear(nch_in, nch_out)
+        layers = []
+        layers += nn.Linear(nch_in, nch_out)
         if bnorm:
-            layers.append(nn.InstanceNorm1d(nch_out))
+            layers += [nn.InstanceNorm1d(nch_out)]
         if brelu:
-            layers.append(nn.LeakyReLU(brelu))
+            layers += [nn.LeakyReLU(brelu)]
 
         self.cbr = nn.Sequential(*layers)
 
