@@ -15,11 +15,12 @@ parser = argparse.ArgumentParser(description='Train the pix2pix network',
 
 parser.add_argument('--gpu_ids', default='0', dest='gpu_ids')
 
-parser.add_argument('--mode', default='test', choices=['train', 'test'], dest='mode')
+parser.add_argument('--mode', default='train', choices=['train', 'test'], dest='mode')
 parser.add_argument('--train_continue', default='off', choices=['on', 'off'], dest='train_continue')
 
-parser.add_argument('--scope', default='pix2pix_facades_bnorm', dest='scope')
+parser.add_argument('--scope', default='pix2pix_bnorm', dest='scope')
 parser.add_argument('--norm', type=str, default='bnorm', dest='norm')
+parser.add_argument('--name_data', type=str, default='facades', dest='name_data')
 
 parser.add_argument('--dir_checkpoint', default='./checkpoints', dest='dir_checkpoint')
 parser.add_argument('--dir_log', default='./log', dest='dir_log')
