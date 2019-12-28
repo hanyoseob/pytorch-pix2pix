@@ -262,7 +262,7 @@ class Train:
                     label = self.deprocess(label)
 
                     writer_train.add_images('input', input, num_batch_train * (epoch - 1) + i, dataformats='NHWC')
-                    writer_train.add_images('ouput', output, num_batch_train * (epoch - 1) + i, dataformats='NHWC')
+                    writer_train.add_images('output', output, num_batch_train * (epoch - 1) + i, dataformats='NHWC')
                     writer_train.add_images('label', label, num_batch_train * (epoch - 1) + i, dataformats='NHWC')
 
                     ## show predict
@@ -329,7 +329,7 @@ class Train:
                         label = self.deprocess(label)
 
                         writer_val.add_images('input', input, num_batch_val * (epoch - 1) + i, dataformats='NHWC')
-                        writer_val.add_images('ouput', output, num_batch_val * (epoch - 1) + i, dataformats='NHWC')
+                        writer_val.add_images('output', output, num_batch_val * (epoch - 1) + i, dataformats='NHWC')
                         writer_val.add_images('label', label, num_batch_val * (epoch - 1) + i, dataformats='NHWC')
                         # add_figure(output, label, writer_val, epoch=epoch, ylabel='Density', xlabel='Radius', namescope='train/gen')
 
