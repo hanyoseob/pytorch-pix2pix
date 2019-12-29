@@ -25,16 +25,16 @@ parser.add_argument('--name_data', type=str, default='facades', dest='name_data'
 parser.add_argument('--dir_checkpoint', default='./checkpoints', dest='dir_checkpoint')
 parser.add_argument('--dir_log', default='./log', dest='dir_log')
 
-parser.add_argument('--dir_data', default='./datasets', dest='dir_data')
+parser.add_argument('--dir_data', default='../datasets', dest='dir_data')
 parser.add_argument('--dir_result', default='./result', dest='dir_result')
 
 parser.add_argument('--num_epoch', type=int,  default=300, dest='num_epoch')
-parser.add_argument('--batch_size', type=int, default=4, dest='batch_size')
+parser.add_argument('--batch_size', type=int, default=8, dest='batch_size')
 
 parser.add_argument('--lr_G', type=float, default=2e-4, dest='lr_G')
 parser.add_argument('--lr_D', type=float, default=2e-4, dest='lr_D')
 
-parser.add_argument('--num_freq_disp', type=int,  default=50, dest='num_freq_disp')
+parser.add_argument('--num_freq_disp', type=int,  default=100, dest='num_freq_disp')
 parser.add_argument('--num_freq_save', type=int,  default=10, dest='num_freq_save')
 
 parser.add_argument('--lr_policy', type=str, default='linear', choices=['linear', 'step', 'plateau', 'cosine'], dest='lr_policy')

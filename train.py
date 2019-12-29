@@ -7,6 +7,7 @@ import torch.nn as nn
 from torchvision import transforms
 from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt
+from matplotlib.pyplot import cm
 
 
 class Train:
@@ -99,7 +100,7 @@ class Train:
         nomalize = Nomalize()
         randflip = RandomFlip()
         rescale = Rescale((self.ny_load, self.nx_load))
-        randomcrop = RandomCrop((self.ny_in, self.nx_in))
+        randomcrop = RandomCrop((self.ny_out, self.nx_out))
         totensor = ToTensor()
         return totensor(randomcrop(rescale(randflip(nomalize(data)))))
 
@@ -144,8 +145,12 @@ class Train:
         dir_log_train = os.path.join(self.dir_log, self.scope, name_data, 'train')
         dir_log_val = os.path.join(self.dir_log, self.scope, name_data, 'val')
 
-        dataset_train = Dataset(dir_data_train, direction=self.direction, data_type=self.data_type, transform=self.preprocess)
-        dataset_val = Dataset(dir_data_val, direction=self.direction, data_type=self.data_type, transform=transforms.Compose([Nomalize(), ToTensor()]))
+        transform_train = transforms.Compose([Nomalize(), RandomFlip(), Rescale((self.ny_load, self.nx_load)), RandomCrop((self.ny_in, self.nx_in)), ToTensor()])
+        transform_val = transforms.Compose([Nomalize(), ToTensor()])
+        transform_inv = transforms.Compose([ToNumpy(), Denomalize()])
+
+        dataset_train = Dataset(dir_data_train, direction=self.direction, data_type=self.data_type, nch=self.nch_in, transform=transform_train)
+        dataset_val = Dataset(dir_data_val, direction=self.direction, data_type=self.data_type, nch=self.nch_in, transform=transform_val)
 
         loader_train = torch.utils.data.DataLoader(dataset_train, batch_size=batch_size, shuffle=True, num_workers=8)
         loader_val = torch.utils.data.DataLoader(dataset_val, batch_size=batch_size, shuffle=False, num_workers=8)
@@ -183,7 +188,7 @@ class Train:
         st_epoch = 0
 
         if train_continue == 'on':
-            netG, netD, optimG, optimD, st_epoch = self.load(netG, netD, optimG, optimD, mode=mode)
+            netG, netD, optimG, optimD, st_epoch = self.load(dir_chck, netG, netD, optimG, optimD, mode=mode)
 
         ## setup tensorboard
         writer_train = SummaryWriter(log_dir=dir_log_train)
@@ -194,10 +199,10 @@ class Train:
             netG.train()
             netD.train()
 
-            gen_loss_l1_train = 0
-            gen_loss_gan_train = 0
-            disc_loss_real_train = 0
-            disc_loss_fake_train = 0
+            loss_G_l1_train = 0
+            loss_G_gan_train = 0
+            loss_D_real_train = 0
+            loss_D_fake_train = 0
 
             for i, data in enumerate(loader_train, 1):
                 def should(freq):
@@ -219,11 +224,11 @@ class Train:
                 pred_real = netD(real)
                 pred_fake = netD(fake.detach())
 
-                disc_loss_real = fn_GAN(pred_real, torch.ones_like(pred_real))
-                disc_loss_fake = fn_GAN(pred_fake, torch.zeros_like(pred_fake))
-                disc_loss = 0.5 * (disc_loss_real + disc_loss_fake)
+                loss_D_real = fn_GAN(pred_real, torch.ones_like(pred_real))
+                loss_D_fake = fn_GAN(pred_fake, torch.zeros_like(pred_fake))
+                loss_D = 0.5 * (loss_D_real + loss_D_fake)
 
-                disc_loss.backward()
+                loss_D.backward()
                 optimD.step()
 
                 # backward netG
@@ -234,45 +239,45 @@ class Train:
 
                 pred_fake = netD(fake)
 
-                gen_loss_gan = fn_GAN(pred_fake, torch.ones_like(pred_fake))
-                gen_loss_l1 = fn_L1(output, label)
-                gen_loss = (wgt_l1 * gen_loss_l1) + (wgt_gan * gen_loss_gan)
+                loss_G_gan = fn_GAN(pred_fake, torch.ones_like(pred_fake))
+                loss_G_l1 = fn_L1(output, label)
+                loss_G = (wgt_l1 * loss_G_l1) + (wgt_gan * loss_G_gan)
 
-                gen_loss.backward()
+                loss_G.backward()
                 optimG.step()
 
                 # get losses
-                gen_loss_l1_train += gen_loss_l1.item()
-                gen_loss_gan_train += gen_loss_gan.item()
-                disc_loss_fake_train += disc_loss_fake.item()
-                disc_loss_real_train += disc_loss_real.item()
+                loss_G_l1_train += loss_G_l1.item()
+                loss_G_gan_train += loss_G_gan.item()
+                loss_D_fake_train += loss_D_fake.item()
+                loss_D_real_train += loss_D_real.item()
 
                 print('TRAIN: EPOCH %d: BATCH %04d/%04d: '
                       'GEN L1: %.4f GEN GAN: %.4f DISC FAKE: %.4f DISC REAL: %.4f'
                       % (epoch, i, num_batch_train,
-                         gen_loss_l1_train / i, gen_loss_gan_train / i, disc_loss_fake_train / i, disc_loss_real_train / i))
+                         loss_G_l1_train / i, loss_G_gan_train / i, loss_D_fake_train / i, loss_D_real_train / i))
 
                 if should(num_freq_disp):
                     ## show output
-                    input = self.deprocess(input)
-                    output = self.deprocess(output)
-                    label = self.deprocess(label)
+                    input = transform_inv(input)
+                    output = transform_inv(output)
+                    label = transform_inv(label)
 
                     writer_train.add_images('input', input, num_batch_train * (epoch - 1) + i, dataformats='NHWC')
                     writer_train.add_images('output', output, num_batch_train * (epoch - 1) + i, dataformats='NHWC')
                     writer_train.add_images('label', label, num_batch_train * (epoch - 1) + i, dataformats='NHWC')
 
                     ## show predict
-                    pred_fake = self.deprocess(pred_fake)
-                    pred_real = self.deprocess(pred_real)
+                    pred_fake = transform_inv(pred_fake)
+                    pred_real = transform_inv(pred_real)
 
                     writer_train.add_images('pred_fake', pred_fake, num_batch_train * (epoch - 1) + i, dataformats='NHWC')
                     writer_train.add_images('pred_real', pred_real, num_batch_train * (epoch - 1) + i, dataformats='NHWC')
 
-            writer_train.add_scalar('gen_loss_L1', gen_loss_l1_train / num_batch_train, epoch)
-            writer_train.add_scalar('gen_loss_GAN', gen_loss_gan_train / num_batch_train, epoch)
-            writer_train.add_scalar('disc_loss_fake', disc_loss_fake_train / num_batch_train, epoch)
-            writer_train.add_scalar('disc_loss_real', disc_loss_real_train / num_batch_train, epoch)
+            writer_train.add_scalar('loss_G_l1', loss_G_l1_train / num_batch_train, epoch)
+            writer_train.add_scalar('loss_G_gan', loss_G_gan_train / num_batch_train, epoch)
+            writer_train.add_scalar('loss_D_fake', loss_D_fake_train / num_batch_train, epoch)
+            writer_train.add_scalar('loss_D_real', loss_D_real_train / num_batch_train, epoch)
 
             ## validation phase
             with torch.no_grad():
@@ -281,10 +286,10 @@ class Train:
                 # netG.train()
                 # netD.train()
 
-                gen_loss_l1_val = 0
-                gen_loss_gan_val = 0
-                disc_loss_real_val = 0
-                disc_loss_fake_val = 0
+                loss_G_l1_val = 0
+                loss_G_gan_val = 0
+                loss_D_real_val = 0
+                loss_D_fake_val = 0
 
                 for i, data in enumerate(loader_val, 1):
                     def should(freq):
@@ -303,45 +308,45 @@ class Train:
                     pred_fake = netD(fake)
                     pred_real = netD(real)
 
-                    disc_loss_real = fn_GAN(pred_real, torch.ones_like(pred_real))
-                    disc_loss_fake = fn_GAN(pred_fake, torch.zeros_like(pred_fake))
-                    disc_loss = 0.5 * (disc_loss_real + disc_loss_fake)
+                    loss_D_real = fn_GAN(pred_real, torch.ones_like(pred_real))
+                    loss_D_fake = fn_GAN(pred_fake, torch.zeros_like(pred_fake))
+                    loss_D = 0.5 * (loss_D_real + loss_D_fake)
 
-                    gen_loss_gan = fn_GAN(pred_fake, torch.ones_like(pred_fake))
-                    gen_loss_l1 = fn_L1(output, label)
-                    gen_loss = (wgt_l1 * gen_loss_l1) + (wgt_gan * gen_loss_gan)
+                    loss_G_gan = fn_GAN(pred_fake, torch.ones_like(pred_fake))
+                    loss_G_l1 = fn_L1(output, label)
+                    loss_G = (wgt_l1 * loss_G_l1) + (wgt_gan * loss_G_gan)
 
-                    gen_loss_l1_val += gen_loss_l1.item()
-                    gen_loss_gan_val += gen_loss_gan.item()
-                    disc_loss_real_val += disc_loss_real.item()
-                    disc_loss_fake_val += disc_loss_fake.item()
+                    loss_G_l1_val += loss_G_l1.item()
+                    loss_G_gan_val += loss_G_gan.item()
+                    loss_D_real_val += loss_D_real.item()
+                    loss_D_fake_val += loss_D_fake.item()
 
                     print('VALID: EPOCH %d: BATCH %04d/%04d: '
                           'GEN L1: %.4f GEN GAN: %.4f DISC FAKE: %.4f DISC REAL: %.4f'
                           % (epoch, i, num_batch_val,
-                             gen_loss_l1_val / i, gen_loss_gan_val / i, disc_loss_fake_val / i, disc_loss_real_val / i))
+                             loss_G_l1_val / i, loss_G_gan_val / i, loss_D_fake_val / i, loss_D_real_val / i))
 
                     if should(num_freq_disp):
                         ## show output
-                        input = self.deprocess(input)
-                        output = self.deprocess(output)
-                        label = self.deprocess(label)
+                        input = transform_inv(input)
+                        output = transform_inv(output)
+                        label = transform_inv(label)
 
                         writer_val.add_images('input', input, num_batch_val * (epoch - 1) + i, dataformats='NHWC')
                         writer_val.add_images('output', output, num_batch_val * (epoch - 1) + i, dataformats='NHWC')
                         writer_val.add_images('label', label, num_batch_val * (epoch - 1) + i, dataformats='NHWC')
 
                         ## show predict
-                        pred_fake = self.deprocess(pred_fake)
-                        pred_real = self.deprocess(pred_real)
+                        pred_fake = transform_inv(pred_fake)
+                        pred_real = transform_inv(pred_real)
 
                         writer_val.add_images('pred_fake', pred_fake, num_batch_val * (epoch - 1) + i, dataformats='NHWC')
                         writer_val.add_images('pred_real', pred_real, num_batch_val * (epoch - 1) + i, dataformats='NHWC')
 
-                writer_val.add_scalar('gen_loss_L1', gen_loss_l1_val / num_batch_val, epoch)
-                writer_val.add_scalar('gen_loss_GAN', gen_loss_gan_val / num_batch_val, epoch)
-                writer_val.add_scalar('disc_loss_fake', disc_loss_fake_val / num_batch_val, epoch)
-                writer_val.add_scalar('disc_loss_real', disc_loss_real_val / num_batch_val, epoch)
+                writer_val.add_scalar('loss_G_l1', loss_G_l1_val / num_batch_val, epoch)
+                writer_val.add_scalar('loss_G_gan', loss_G_gan_val / num_batch_val, epoch)
+                writer_val.add_scalar('loss_D_fake', loss_D_fake_val / num_batch_val, epoch)
+                writer_val.add_scalar('loss_D_real', loss_D_real_val / num_batch_val, epoch)
 
             # update schduler
             # schedG.step()
@@ -379,7 +384,10 @@ class Train:
 
         dir_data_test = os.path.join(self.dir_data, name_data, 'test')
 
-        dataset_test = Dataset(dir_data_test, direction=self.direction, data_type=self.data_type, transform=transforms.Compose([Nomalize(), ToTensor()]))
+        transform_test = transforms.Compose([Nomalize(), ToTensor()])
+        transform_inv = transforms.Compose([ToNumpy(), Denomalize()])
+
+        dataset_test = Dataset(dir_data_test, direction=self.direction, data_type=self.data_type, nch=self.nch_in, transform=transform_test)
 
         loader_test = torch.utils.data.DataLoader(dataset_test, batch_size=batch_size, shuffle=False, num_workers=8)
 
@@ -404,7 +412,7 @@ class Train:
             netG.eval()
             # netG.train()
 
-            gen_loss_l1_test = 0
+            loss_G_l1_test = 0
 
             for i, data in enumerate(loader_test, 1):
                 input = data['dataA'].to(device)
@@ -412,12 +420,13 @@ class Train:
 
                 output = netG(input)
 
-                gen_loss_l1 = fn_L1(output, label)
-                gen_loss_l1_test += gen_loss_l1.item()
+                loss_G_l1 = fn_L1(output, label)
 
-                input = self.deprocess(input)
-                output = self.deprocess(output)
-                label = self.deprocess(label)
+                loss_G_l1_test += loss_G_l1.item()
+
+                input = transform_inv(input)
+                output = transform_inv(output)
+                label = transform_inv(label)
 
                 for j in range(label.shape[0]):
                     name = batch_size * (i - 1) + j
@@ -432,8 +441,8 @@ class Train:
 
                     append_index(dir_result, fileset)
 
-                print('TEST: %d/%d: LOSS: %.6f' % (i, num_batch_test, gen_loss_l1.item()))
-            print('TEST: AVERAGE LOSS: %.6f' % (gen_loss_l1_test / num_batch_test))
+                print('TEST: %d/%d: LOSS: %.6f' % (i, num_batch_test, loss_G_l1.item()))
+            print('TEST: AVERAGE LOSS: %.6f' % (loss_G_l1_test / num_batch_test))
 
 
 def set_requires_grad(nets, requires_grad=False):

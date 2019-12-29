@@ -13,47 +13,27 @@ class Dataset(torch.utils.data.Dataset):
        stuff<number>_density.pt
     """
 
-    def __init__(self, data_dir, direction='A2B', data_type='float32', index_slice=None, transform=None):
+    def __init__(self, data_dir, direction='A2B', data_type='float32', nch=3, transform=[]):
         self.data_dir = data_dir
         self.transform = transform
         self.direction = direction
         self.data_type = data_type
+        self.nch = nch
 
         lst_data = os.listdir(data_dir)
 
-        # f_trans = [f for f in os.listdir(data_dir) if f.startswith('input')]
-        # f_trans.sort(key=lambda f: int(''.join(filter(str.isdigit, f))))
-        #
-        # f_density = [f for f in os.listdir(data_dir) if f.startswith('label')]
-        # f_density.sort(key=lambda f: int(''.join(filter(str.isdigit, f))))
-
-        if index_slice:
-            lst_data = lst_data[index_slice]
-            # f_trans = f_trans[index_slice]
-            # f_density = f_density[index_slice]
-
-        # self.names = (f_trans, f_density)
         self.names = lst_data
 
     def __getitem__(self, index):
-        data = plt.imread(os.path.join(self.data_dir, self.names[index]))
-        # data = skimage.io.imread(os.path.join(self.data_dir, self.names[index]), as_gray=True)
+        data = plt.imread(os.path.join(self.data_dir, self.names[index]))[:, :, :self.nch]
 
-        # x = torch.load(os.path.join(self.data_dir, self.names[0][index]))
-        # y = torch.load(os.path.join(self.data_dir, self.names[1][index]))
-        # x = np.load(os.path.join(self.data_dir, self.names[0][index]))
-        # y = np.load(os.path.join(self.data_dir, self.names[1][index]))
-        # x = x.to(self.device)
-        # y = y.to(self.device)
+        if data.dtype == np.uint8:
+            data = data / 255.0
 
-        sz = int(data.shape[0]/2)
+        sz = int(data.shape[1]/2)
 
-        if self.data_type == 'float32':
-            dataA = data[:, :sz, :].astype(np.float32)
-            dataB = data[:, sz:, :].astype(np.float32)
-
-        # x = np.expand_dims(np.expand_dims(x, axis=1), axis=2)
-        # y = np.expand_dims(np.expand_dims(y, axis=1), axis=2)
+        dataA = data[:, :sz, :]
+        dataB = data[:, sz:, :]
 
         if self.direction == 'A2B':
             data = {'dataA': dataA, 'dataB': dataB}
@@ -97,8 +77,8 @@ class Nomalize(object):
         # return data
 
         dataA, dataB = data['dataA'], data['dataB']
-        dataA = 2 * (dataA / 255) - 1
-        dataB = 2 * (dataB / 255) - 1
+        dataA = 2 * dataA - 1
+        dataB = 2 * dataB - 1
         return {'dataA': dataA, 'dataB': dataB}
 
 
