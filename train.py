@@ -11,8 +11,6 @@ import matplotlib.pyplot as plt
 
 class Train:
     def __init__(self, args):
-        # self.opts = args
-
         self.mode = args.mode
         self.train_continue = args.train_continue
 
@@ -53,10 +51,12 @@ class Train:
         self.norm = args.norm
 
         self.gpu_ids = args.gpu_ids
-        self.num_freq = args.num_freq
 
-        self.direction = args.direction
+        self.num_freq_disp = args.num_freq_disp
+        self.num_freq_save = args.num_freq_save
+
         self.name_data = args.name_data
+        self.direction = args.direction
 
         if self.gpu_ids and torch.cuda.is_available():
             self.device = torch.device("cuda:%d" % self.gpu_ids[0])
@@ -64,25 +64,23 @@ class Train:
         else:
             self.device = torch.device("cpu")
 
-    def save(self, netG, netD, optimG, optimD, epoch):
-        dir_checkpoint = os.path.join(self.dir_checkpoint, self.scope)
-
-        if not os.path.exists(dir_checkpoint):
-            os.makedirs(dir_checkpoint)
+    def save(self, dir_chck, netG, netD, optimG, optimD, epoch):
+        if not os.path.exists(dir_chck):
+            os.makedirs(dir_chck)
 
         torch.save({'netG': netG.state_dict(), 'netD': netD.state_dict(),
                     'optimG': optimG.state_dict(), 'optimD': optimD.state_dict()},
-                   '%s/model_epoch%04d.pth' % (dir_checkpoint, epoch))
+                   '%s/model_epoch%04d.pth' % (dir_chck, epoch))
 
-    def load(self, netG, netD=[], optimG=[], optimD=[], epoch=[], mode='train'):
-        dir_checkpoint = os.path.join(self.dir_checkpoint, self.scope)
-
+    def load(self, dir_chck, netG, netD=[], optimG=[], optimD=[], epoch=[], mode='train'):
         if not epoch:
-            ckpt = os.listdir(dir_checkpoint)
+            ckpt = os.listdir(dir_chck)
             ckpt.sort()
             epoch = int(ckpt[-1].split('epoch')[1].split('.pth')[0])
 
-        dict_net = torch.load('%s/model_epoch%04d.pth' % (dir_checkpoint, epoch))
+        dict_net = torch.load('%s/model_epoch%04d.pth' % (dir_chck, epoch))
+
+        print('Loaded %dth network' % epoch)
 
         if mode == 'train':
             netG.load_state_dict(dict_net['netG'])
@@ -104,7 +102,6 @@ class Train:
         randomcrop = RandomCrop((self.ny_in, self.nx_in))
         totensor = ToTensor()
         return totensor(randomcrop(rescale(randflip(nomalize(data)))))
-        # return  transforms.Compose([Nomalize(), RandomFlip(), Rescale(286), RandomCrop(256), ToTensor()])
 
     def deprocess(self, data):
         tonumpy = ToNumpy()
@@ -132,22 +129,26 @@ class Train:
         nch_out = self.nch_out
         nch_ker = self.nch_ker
 
-        num_freq = self.num_freq
         norm = self.norm
         name_data = self.name_data
 
+        num_freq_disp = self.num_freq_disp
+        num_freq_save = self.num_freq_save
+
         ## setup dataset
+        dir_chck = os.path.join(self.dir_checkpoint, self.scope, name_data)
+
         dir_data_train = os.path.join(self.dir_data, name_data, 'train')
         dir_data_val = os.path.join(self.dir_data, name_data, 'val')
 
-        log_dir_train = os.path.join(self.dir_log, self.scope, name_data, 'train')
-        log_dir_val = os.path.join(self.dir_log, self.scope, name_data, 'val')
+        dir_log_train = os.path.join(self.dir_log, self.scope, name_data, 'train')
+        dir_log_val = os.path.join(self.dir_log, self.scope, name_data, 'val')
 
         dataset_train = Dataset(dir_data_train, direction=self.direction, data_type=self.data_type, transform=self.preprocess)
         dataset_val = Dataset(dir_data_val, direction=self.direction, data_type=self.data_type, transform=transforms.Compose([Nomalize(), ToTensor()]))
 
-        loader_train = torch.utils.data.DataLoader(dataset_train, batch_size=batch_size, shuffle=True, num_workers=0)
-        loader_val = torch.utils.data.DataLoader(dataset_val, batch_size=batch_size, shuffle=False, num_workers=0)
+        loader_train = torch.utils.data.DataLoader(dataset_train, batch_size=batch_size, shuffle=True, num_workers=8)
+        loader_val = torch.utils.data.DataLoader(dataset_val, batch_size=batch_size, shuffle=False, num_workers=8)
 
         num_train = len(dataset_train)
         num_val = len(dataset_val)
@@ -175,10 +176,6 @@ class Train:
         # schedG = get_scheduler(optimG, self.opts)
         # schedD = get_scheduler(optimD, self.opts)
 
-        # schedG = torch.optim.lr_scheduler.ReduceLROnPlateau(optimG, 'min', factor=0.5, patience=20, verbose=True)
-        # schedD = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        #     optimD, 'min', factor=0.5, patience=20, verbose=True)
-
         # schedG = torch.optim.lr_scheduler.ExponentialLR(optimG, gamma=0.9)
         # schedD = torch.optim.lr_scheduler.ExponentialLR(optimD, gamma=0.9)
 
@@ -189,8 +186,8 @@ class Train:
             netG, netD, optimG, optimD, st_epoch = self.load(netG, netD, optimG, optimD, mode=mode)
 
         ## setup tensorboard
-        writer_train = SummaryWriter(log_dir=log_dir_train)
-        writer_val = SummaryWriter(log_dir=log_dir_val)
+        writer_train = SummaryWriter(log_dir=dir_log_train)
+        writer_val = SummaryWriter(log_dir=dir_log_val)
 
         for epoch in range(st_epoch + 1, num_epoch + 1):
             ## training phase
@@ -219,8 +216,8 @@ class Train:
                 set_requires_grad(netD, True)
                 optimD.zero_grad()
 
-                pred_fake = netD(fake.detach())
                 pred_real = netD(real)
+                pred_fake = netD(fake.detach())
 
                 disc_loss_real = fn_GAN(pred_real, torch.ones_like(pred_real))
                 disc_loss_fake = fn_GAN(pred_fake, torch.zeros_like(pred_fake))
@@ -255,7 +252,7 @@ class Train:
                       % (epoch, i, num_batch_train,
                          gen_loss_l1_train / i, gen_loss_gan_train / i, disc_loss_fake_train / i, disc_loss_real_train / i))
 
-                if should(num_freq):
+                if should(num_freq_disp):
                     ## show output
                     input = self.deprocess(input)
                     output = self.deprocess(output)
@@ -296,11 +293,13 @@ class Train:
                     input = data['dataA'].to(device)
                     label = data['dataB'].to(device)
 
+                    # forward netG
                     output = netG(input)
 
                     fake = torch.cat([input, output], dim=1)
                     real = torch.cat([input, label], dim=1)
 
+                    # forward netD
                     pred_fake = netD(fake)
                     pred_real = netD(real)
 
@@ -322,7 +321,7 @@ class Train:
                           % (epoch, i, num_batch_val,
                              gen_loss_l1_val / i, gen_loss_gan_val / i, disc_loss_fake_val / i, disc_loss_real_val / i))
 
-                    if should(num_freq):
+                    if should(num_freq_disp):
                         ## show output
                         input = self.deprocess(input)
                         output = self.deprocess(output)
@@ -331,7 +330,6 @@ class Train:
                         writer_val.add_images('input', input, num_batch_val * (epoch - 1) + i, dataformats='NHWC')
                         writer_val.add_images('output', output, num_batch_val * (epoch - 1) + i, dataformats='NHWC')
                         writer_val.add_images('label', label, num_batch_val * (epoch - 1) + i, dataformats='NHWC')
-                        # add_figure(output, label, writer_val, epoch=epoch, ylabel='Density', xlabel='Radius', namescope='train/gen')
 
                         ## show predict
                         pred_fake = self.deprocess(pred_fake)
@@ -339,7 +337,6 @@ class Train:
 
                         writer_val.add_images('pred_fake', pred_fake, num_batch_val * (epoch - 1) + i, dataformats='NHWC')
                         writer_val.add_images('pred_real', pred_real, num_batch_val * (epoch - 1) + i, dataformats='NHWC')
-                        # add_figure(pred_fake, pred_real, writer_val, epoch=epoch, ylabel='Probability', xlabel='Radius', namescope='train/discrim')
 
                 writer_val.add_scalar('gen_loss_L1', gen_loss_l1_val / num_batch_val, epoch)
                 writer_val.add_scalar('gen_loss_GAN', gen_loss_gan_val / num_batch_val, epoch)
@@ -351,15 +348,13 @@ class Train:
             # schedD.step()
 
             ## save
-            if (epoch % 10) == 0:
-                self.save(netG, netD, optimG, optimD, epoch)
-                # torch.save(net.state_dict(), 'Checkpoints/model_epoch_%d.pt' % epoch)
+            if (epoch % num_freq_save) == 0:
+                self.save(dir_chck, netG, netD, optimG, optimD, epoch)
 
         writer_train.close()
         writer_val.close()
 
-
-    def test(self, epoch=[]):
+    def test(self):
         mode = self.mode
 
         batch_size = self.batch_size
@@ -375,6 +370,8 @@ class Train:
         name_data = self.name_data
 
         ## setup dataset
+        dir_chck = os.path.join(self.dir_checkpoint, self.scope, name_data)
+
         dir_result = os.path.join(self.dir_result, self.scope, name_data)
         dir_result_save = os.path.join(dir_result, 'images')
         if not os.path.exists(dir_result_save):
@@ -384,7 +381,7 @@ class Train:
 
         dataset_test = Dataset(dir_data_test, direction=self.direction, data_type=self.data_type, transform=transforms.Compose([Nomalize(), ToTensor()]))
 
-        loader_test = torch.utils.data.DataLoader(dataset_test, batch_size=batch_size, shuffle=False, num_workers=0)
+        loader_test = torch.utils.data.DataLoader(dataset_test, batch_size=batch_size, shuffle=False, num_workers=8)
 
         num_test = len(dataset_test)
 
@@ -400,7 +397,7 @@ class Train:
         ## load from checkpoints
         st_epoch = 0
 
-        netG, st_epoch = self.load(netG, mode=mode)
+        netG, st_epoch = self.load(dir_chck, netG, mode=mode)
 
         ## test phase
         with torch.no_grad():
@@ -408,6 +405,7 @@ class Train:
             # netG.train()
 
             gen_loss_l1_test = 0
+
             for i, data in enumerate(loader_test, 1):
                 input = data['dataA'].to(device)
                 label = data['dataB'].to(device)
@@ -417,12 +415,9 @@ class Train:
                 gen_loss_l1 = fn_L1(output, label)
                 gen_loss_l1_test += gen_loss_l1.item()
 
-
                 input = self.deprocess(input)
                 output = self.deprocess(output)
                 label = self.deprocess(label)
-
-                # np.save(os.path.join(dir_result, "output_%05d_1d.npy" % (i - 1)), np.float32(np.squeeze(output.detach().numpy())))
 
                 for j in range(label.shape[0]):
                     name = batch_size * (i - 1) + j
@@ -439,7 +434,6 @@ class Train:
 
                 print('TEST: %d/%d: LOSS: %.6f' % (i, num_batch_test, gen_loss_l1.item()))
             print('TEST: AVERAGE LOSS: %.6f' % (gen_loss_l1_test / num_batch_test))
-
 
 
 def set_requires_grad(nets, requires_grad=False):

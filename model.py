@@ -2,7 +2,6 @@ from layer import *
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.nn import init
 from torch.optim import lr_scheduler
 
@@ -15,6 +14,11 @@ class UNet(nn.Module):
         self.nch_out = nch_out
         self.nch_ker = nch_ker
         self.norm = norm
+
+        if norm == 'bnorm':
+            self.bias = False
+        else:
+            self.bias = True
 
         self.enc1 = CNR2d(1 * self.nch_in,  1 * self.nch_ker, stride=2, norm=[],        relu=0.2, drop=[])
         self.enc2 = CNR2d(1 * self.nch_ker, 2 * self.nch_ker, stride=2, norm=self.norm, relu=0.2, drop=[])
@@ -74,18 +78,13 @@ class ResNet(nn.Module):
             self.bias = True
 
         enc1 = [Padding(3, 'reflection'),
-                Conv2d(self.nch_in, self.nch_ker, kernel_size=7, stride=1, padding=0, bias=self.bias),
-                ReLU(0.0)]
+                CNR2d(self.nch_in, 1 * self.nch_ker, kernel_size=7, stride=1, padding=0, norm=[], relu=0.0)]
         self.enc1 = nn.Sequential(*enc1)
 
-        enc2 = [Conv2d(1 * self.nch_ker, 2 * self.nch_ker, kernel_size=3, stride=2, padding=1, bias=self.bias),
-                Norm2d(2 * self.nch_ker, norm_mode=norm),
-                ReLU(0.0)]
+        enc2 = [CNR2d(1 * self.nch_ker, 2 * self.nch_ker, kernel_size=3, stride=2, padding=1, norm=self.norm, relu=0.0)]
         self.enc2 = nn.Sequential(*enc2)
 
-        enc3 = [Conv2d(2 * self.nch_ker, 4 * self.nch_ker, kernel_size=3, stride=2, padding=1, bias=self.bias),
-                Norm2d(4 * self.nch_ker, norm_mode=norm),
-                ReLU(0.0)]
+        enc3 = [CNR2d(2 * self.nch_ker, 4 * self.nch_ker, kernel_size=3, stride=2, padding=1, norm=self.norm, relu=0.0)]
         self.enc3 = nn.Sequential(*enc3)
 
         self. res1 = ResBlock(4 * self.nch_ker, 4 * self.nch_ker, kernel_size=3,
@@ -115,18 +114,14 @@ class ResNet(nn.Module):
         self. res9 = ResBlock(4 * self.nch_ker, 4 * self.nch_ker, kernel_size=3,
                               stride=1, norm=self.norm, padding=1, padding_mode='reflection', relu=0.0, drop=0.0)
 
-        dec3 = [nn.ConvTranspose2d(4 * self.nch_ker, 2 * self.nch_ker, kernel_size=3, stride=2, padding=1, output_padding=1, bias=self.bias),
-                Norm2d(2 * self.nch_ker, norm_mode=norm),
-                ReLU(0.0)]
+        dec3 = [DECNR2d(4 * self.nch_ker, 2 * self.nch_ker, kernel_size=3, stride=2, padding=1, output_padding=1, norm=self.norm, relu=0.0)]
         self.dec3 = nn.Sequential(*dec3)
 
-        dec2 = [nn.ConvTranspose2d(2 * self.nch_ker, 1 * self.nch_ker, kernel_size=3, stride=2, padding=1, output_padding=1, bias=self.bias),
-                Norm2d(1 * self.nch_ker, norm_mode=norm),
-                ReLU(0.0)]
+        dec2 = [DECNR2d(2 * self.nch_ker, 1 * self.nch_ker, kernel_size=3, stride=2, padding=1, output_padding=1, norm=self.norm, relu=0.0)]
         self.dec2 = nn.Sequential(*dec2)
 
         dec1 = [Padding(3, 'reflection'),
-                Conv2d(1 * self.nch_ker, self.nch_out, kernel_size=7, stride=1, padding=0, bias=self.bias)]
+                Conv2d(1 * self.nch_ker, self.nch_out, kernel_size=7, stride=1, padding=0)]
         self.dec1 = nn.Sequential(*dec1)
 
     def forward(self, x):
@@ -166,38 +161,6 @@ class Discriminator(nn.Module):
         x = self.dsc5(x)
 
         x = torch.sigmoid(x)
-
-        return x
-
-class AutoEncoder1d(nn.Module):
-    def __init__(self, nch_in, nch_out):
-        super(AutoEncoder1d, self).__init__()
-
-        # self.nch_in = args.nch_in
-        # self.nch_out = args.nch_out
-        self.nch_in = nch_in
-        self.nch_out = nch_out
-
-        self.efc1 = nn.Linear(self.nch_in, 400)
-        self.efc2 = nn.Linear(400, 200)
-        self.efc3 = nn.Linear(200, 100)
-        self.efc4 = nn.Linear(100, 50)
-
-        self.dfc4 = nn.Linear(50, 100)
-        self.dfc3 = nn.Linear(100, 200)
-        self.dfc2 = nn.Linear(200, 400)
-        self.dfc1 = nn.Linear(400, self.nch_out)
-
-    def forward(self, x):
-        x = F.relu(self.efc1(x))
-        x = F.relu(self.efc2(x))
-        x = F.relu(self.efc3(x))
-        x = F.relu(self.efc4(x))
-
-        x = F.relu(self.dfc4(x))
-        x = F.relu(self.dfc3(x))
-        x = F.relu(self.dfc2(x))
-        x = self.dfc1(x)
 
         return x
 

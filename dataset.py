@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import skimage
 from skimage import transform
 import matplotlib.pyplot as plt
 import os
@@ -36,6 +37,7 @@ class Dataset(torch.utils.data.Dataset):
 
     def __getitem__(self, index):
         data = plt.imread(os.path.join(self.data_dir, self.names[index]))
+        # data = skimage.io.imread(os.path.join(self.data_dir, self.names[index]), as_gray=True)
 
         # x = torch.load(os.path.join(self.data_dir, self.names[0][index]))
         # y = torch.load(os.path.join(self.data_dir, self.names[1][index]))
@@ -44,7 +46,7 @@ class Dataset(torch.utils.data.Dataset):
         # x = x.to(self.device)
         # y = y.to(self.device)
 
-        sz = int(data.shape[1]/2)
+        sz = int(data.shape[0]/2)
 
         if self.data_type == 'float32':
             dataA = data[:, :sz, :].astype(np.float32)
