@@ -97,12 +97,12 @@ class Train:
             return netG, epoch
 
     def preprocess(self, data):
-        nomalize = Nomalize()
+        normalize = Normalize()
         randflip = RandomFlip()
         rescale = Rescale((self.ny_load, self.nx_load))
         randomcrop = RandomCrop((self.ny_out, self.nx_out))
         totensor = ToTensor()
-        return totensor(randomcrop(rescale(randflip(nomalize(data)))))
+        return totensor(randomcrop(rescale(randflip(normalize(data)))))
 
     def deprocess(self, data):
         tonumpy = ToNumpy()
@@ -145,8 +145,8 @@ class Train:
         dir_log_train = os.path.join(self.dir_log, self.scope, name_data, 'train')
         dir_log_val = os.path.join(self.dir_log, self.scope, name_data, 'val')
 
-        transform_train = transforms.Compose([Nomalize(), RandomFlip(), Rescale((self.ny_load, self.nx_load)), RandomCrop((self.ny_in, self.nx_in)), ToTensor()])
-        transform_val = transforms.Compose([Nomalize(), ToTensor()])
+        transform_train = transforms.Compose([Normalize(), RandomFlip(), Rescale((self.ny_load, self.nx_load)), RandomCrop((self.ny_in, self.nx_in)), ToTensor()])
+        transform_val = transforms.Compose([Normalize(), ToTensor()])
         transform_inv = transforms.Compose([ToNumpy(), Denomalize()])
 
         dataset_train = Dataset(dir_data_train, direction=self.direction, data_type=self.data_type, nch=self.nch_in, transform=transform_train)
@@ -384,7 +384,7 @@ class Train:
 
         dir_data_test = os.path.join(self.dir_data, name_data, 'test')
 
-        transform_test = transforms.Compose([Nomalize(), ToTensor()])
+        transform_test = transforms.Compose([Normalize(), ToTensor()])
         transform_inv = transforms.Compose([ToNumpy(), Denomalize()])
 
         dataset_test = Dataset(dir_data_test, direction=self.direction, data_type=self.data_type, nch=self.nch_in, transform=transform_test)
