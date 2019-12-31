@@ -8,6 +8,7 @@ from torchvision import transforms
 from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import cm
+from statistics import mean
 
 
 class Train:
@@ -199,10 +200,10 @@ class Train:
             netG.train()
             netD.train()
 
-            loss_G_l1_train = 0
-            loss_G_gan_train = 0
-            loss_D_real_train = 0
-            loss_D_fake_train = 0
+            loss_G_l1_train = []
+            loss_G_gan_train = []
+            loss_D_real_train = []
+            loss_D_fake_train = []
 
             for i, data in enumerate(loader_train, 1):
                 def should(freq):
@@ -247,15 +248,15 @@ class Train:
                 optimG.step()
 
                 # get losses
-                loss_G_l1_train += loss_G_l1.item()
-                loss_G_gan_train += loss_G_gan.item()
-                loss_D_fake_train += loss_D_fake.item()
-                loss_D_real_train += loss_D_real.item()
+                loss_G_l1_train += [loss_G_l1.item()]
+                loss_G_gan_train += [loss_G_gan.item()]
+                loss_D_fake_train += [loss_D_fake.item()]
+                loss_D_real_train += [loss_D_real.item()]
 
                 print('TRAIN: EPOCH %d: BATCH %04d/%04d: '
                       'GEN L1: %.4f GEN GAN: %.4f DISC FAKE: %.4f DISC REAL: %.4f'
                       % (epoch, i, num_batch_train,
-                         loss_G_l1_train / i, loss_G_gan_train / i, loss_D_fake_train / i, loss_D_real_train / i))
+                         mean(loss_G_l1_train), mean(loss_G_gan_train), mean(loss_D_fake_train), mean(loss_D_real_train)))
 
                 if should(num_freq_disp):
                     ## show output
@@ -274,10 +275,10 @@ class Train:
                     writer_train.add_images('pred_fake', pred_fake, num_batch_train * (epoch - 1) + i, dataformats='NHWC')
                     writer_train.add_images('pred_real', pred_real, num_batch_train * (epoch - 1) + i, dataformats='NHWC')
 
-            writer_train.add_scalar('loss_G_l1', loss_G_l1_train / num_batch_train, epoch)
-            writer_train.add_scalar('loss_G_gan', loss_G_gan_train / num_batch_train, epoch)
-            writer_train.add_scalar('loss_D_fake', loss_D_fake_train / num_batch_train, epoch)
-            writer_train.add_scalar('loss_D_real', loss_D_real_train / num_batch_train, epoch)
+            writer_train.add_scalar('loss_G_l1', mean(loss_G_l1_train), epoch)
+            writer_train.add_scalar('loss_G_gan', mean(loss_G_gan_train), epoch)
+            writer_train.add_scalar('loss_D_fake', mean(loss_D_fake_train), epoch)
+            writer_train.add_scalar('loss_D_real', mean(loss_D_real_train), epoch)
 
             ## validation phase
             with torch.no_grad():
@@ -286,10 +287,10 @@ class Train:
                 # netG.train()
                 # netD.train()
 
-                loss_G_l1_val = 0
-                loss_G_gan_val = 0
-                loss_D_real_val = 0
-                loss_D_fake_val = 0
+                loss_G_l1_val = []
+                loss_G_gan_val = []
+                loss_D_real_val = []
+                loss_D_fake_val = []
 
                 for i, data in enumerate(loader_val, 1):
                     def should(freq):
@@ -316,15 +317,15 @@ class Train:
                     loss_G_l1 = fn_L1(output, label)
                     loss_G = (wgt_l1 * loss_G_l1) + (wgt_gan * loss_G_gan)
 
-                    loss_G_l1_val += loss_G_l1.item()
-                    loss_G_gan_val += loss_G_gan.item()
-                    loss_D_real_val += loss_D_real.item()
-                    loss_D_fake_val += loss_D_fake.item()
+                    loss_G_l1_val += [loss_G_l1.item()]
+                    loss_G_gan_val += [loss_G_gan.item()]
+                    loss_D_real_val += [loss_D_real.item()]
+                    loss_D_fake_val += [loss_D_fake.item()]
 
                     print('VALID: EPOCH %d: BATCH %04d/%04d: '
                           'GEN L1: %.4f GEN GAN: %.4f DISC FAKE: %.4f DISC REAL: %.4f'
                           % (epoch, i, num_batch_val,
-                             loss_G_l1_val / i, loss_G_gan_val / i, loss_D_fake_val / i, loss_D_real_val / i))
+                             mean(loss_G_l1_val), mean(loss_G_gan_val), mean(loss_D_fake_val), mean(loss_D_real_val)))
 
                     if should(num_freq_disp):
                         ## show output
@@ -343,10 +344,10 @@ class Train:
                         writer_val.add_images('pred_fake', pred_fake, num_batch_val * (epoch - 1) + i, dataformats='NHWC')
                         writer_val.add_images('pred_real', pred_real, num_batch_val * (epoch - 1) + i, dataformats='NHWC')
 
-                writer_val.add_scalar('loss_G_l1', loss_G_l1_val / num_batch_val, epoch)
-                writer_val.add_scalar('loss_G_gan', loss_G_gan_val / num_batch_val, epoch)
-                writer_val.add_scalar('loss_D_fake', loss_D_fake_val / num_batch_val, epoch)
-                writer_val.add_scalar('loss_D_real', loss_D_real_val / num_batch_val, epoch)
+                writer_val.add_scalar('loss_G_l1', mean(loss_G_l1_val), epoch)
+                writer_val.add_scalar('loss_G_gan', mean(loss_G_gan_val), epoch)
+                writer_val.add_scalar('loss_D_fake', mean(loss_D_fake_val), epoch)
+                writer_val.add_scalar('loss_D_real', mean(loss_D_real_val), epoch)
 
             # update schduler
             # schedG.step()
@@ -412,7 +413,7 @@ class Train:
             netG.eval()
             # netG.train()
 
-            loss_G_l1_test = 0
+            loss_G_l1_test = []
 
             for i, data in enumerate(loader_test, 1):
                 input = data['dataA'].to(device)
@@ -422,7 +423,7 @@ class Train:
 
                 loss_G_l1 = fn_L1(output, label)
 
-                loss_G_l1_test += loss_G_l1.item()
+                loss_G_l1_test += [loss_G_l1.item()]
 
                 input = transform_inv(input)
                 output = transform_inv(output)
@@ -442,7 +443,7 @@ class Train:
                     append_index(dir_result, fileset)
 
                 print('TEST: %d/%d: LOSS: %.6f' % (i, num_batch_test, loss_G_l1.item()))
-            print('TEST: AVERAGE LOSS: %.6f' % (loss_G_l1_test / num_batch_test))
+            print('TEST: AVERAGE LOSS: %.6f' % (mean(loss_G_l1_test)))
 
 
 def set_requires_grad(nets, requires_grad=False):
