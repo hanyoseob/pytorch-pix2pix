@@ -132,8 +132,8 @@ class Discriminator(nn.Module):
         # dsc1 : 256 x 256 x 3 -> 128 x 128 x 64
         # dsc2 : 128 x 128 x 64 -> 64 x 64 x 128
         # dsc3 : 64 x 64 x 128 -> 32 x 32 x 256
-        # dsc4 : 32 x 32 x 256 -> 32 x 32 x 512
-        # dsc5 : 32 x 32 x 512 -> 32 x 32 x 1
+        # dsc4 : 32 x 32 x 256 -> 16 x 16 x 512
+        # dsc5 : 16 x 16 x 512 -> 16 x 16 x 1
 
         self.dsc1 = CNR2d(1 * self.nch_in,  1 * self.nch_ker, kernel_size=4, stride=2, padding=1, norm=self.norm, relu=0.2)
         self.dsc2 = CNR2d(1 * self.nch_ker, 2 * self.nch_ker, kernel_size=4, stride=2, padding=1, norm=self.norm, relu=0.2)
