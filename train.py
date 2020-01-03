@@ -171,7 +171,7 @@ class Train:
 
         ## setup loss & optimization
         fn_L1 = nn.L1Loss().to(device) # L1
-        fn_GAN = nn.BCELoss().to(device)
+        fn_GAN = nn.BCEWithLogitsLoss().to(device)
 
         paramsG = netG.parameters()
         paramsD = netD.parameters()
