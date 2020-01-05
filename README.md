@@ -9,7 +9,7 @@ We investigate conditional adversarial networks as a general-purpose solution to
 ## Result
 ![alt text](./img/generated_images.png "Generated Images by pix2pix")
 
-    1st row: Input-segmentation
+    1st row: input-segmentation
     2nd row: label-photo
     3rd row: output-pix2pix
 
