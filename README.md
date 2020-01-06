@@ -26,7 +26,7 @@ We investigate conditional adversarial networks as a general-purpose solution to
 
 * Set **[scope name]** uniquely.
 * To understand hierarchy of directories based on their arguments, see **directories structure** below. 
-* Hyperparameters were written to **arg.txt** under the log directory.
+* Hyperparameters were written to **arg.txt** under the **[log directory]**.
 
 
 ## Test
@@ -57,7 +57,7 @@ We investigate conditional adversarial networks as a general-purpose solution to
     $ tensorboard --logdir [log directory]/[scope name]/[data name] \
                   --port [(optional) 4 digit port number]
 ---
-    $ tensorboard --logdir ./log/pix2pix/facades
+    $ tensorboard --logdir ./log/pix2pix/facades \
                   --port 6006
                   
 After the above comment executes, go **http://localhost:6006**
@@ -87,17 +87,17 @@ After the above comment executes, go **http://localhost:6006**
     +---[dir_data]
     |   \---[name_data]
     |       +---test
-    |       |   +---000000.png
+    |       |   +---00000.png
     |       |   |   ...
     |       |   \---12345.png
     |       +---train
-    |       |   +---000000.png
+    |       |   +---00000.png
     |       |   |   ...
     |       |   \---12345.png
-    |       +---val
-    |       |   +---000000.png
-    |       |   |   ...
-    |       |   \---12345.png
+    |       \---val
+    |           +---00000.png
+    |           |   ...
+    |           \---12345.png
     +---[dir_log]
     |   \---[scope]
     |       \---[name_data]
@@ -135,10 +135,10 @@ After the above comment executes, go **http://localhost:6006**
     |       |   +---1.jpg
     |       |   |   ...
     |       |   \---400.jpg
-    |       +---val
-    |       |   +---1.jpg
-    |       |   |   ...
-    |       |   \---100.jpg
+    |       \---val
+    |           +---1.jpg
+    |           |   ...
+    |           \---100.jpg
     +---log
     |   \---pix2pix
     |       \---facades
@@ -158,4 +158,3 @@ After the above comment executes, go **http://localhost:6006**
                 \---index.html
  
 * Above directory is created by setting arguments when **main.py** is executed.               
-        
