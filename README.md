@@ -26,7 +26,7 @@ We investigate conditional adversarial networks as a general-purpose solution to
 
 * Set **[scope name]** uniquely.
 * To understand hierarchy of directories based on their arguments, see **directories structure** below. 
-* Hyperparameters were written to **arg.txt** under the log directory.
+* Hyperparameters were written to **arg.txt** under the **[log directory]**.
 
 
 ## Test
