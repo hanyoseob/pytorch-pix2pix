@@ -31,6 +31,7 @@ img = img.permute((0, 3, 1, 2))
 plt.figure(figsize=(n, m))
 plt.axis("off")
 # plt.title("Generated Images")
+plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
 plt.imshow(np.transpose(vutils.make_grid(img, padding=2, normalize=True), (1, 2, 0)))
 
 plt.show()
