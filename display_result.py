@@ -4,7 +4,7 @@ import torch
 import torchvision.utils as vutils
 import matplotlib.pyplot as plt
 
-dir_result = './result/pix2pix/facades/images'
+dir_result = './results/pix2pix/facades/images'
 lst_result = os.listdir(dir_result)
 
 nx = 256
@@ -14,11 +14,14 @@ nch = 3
 n = 8
 m = 3
 
+n_id = np.arange(len(lst_result)//m)
+np.random.shuffle(n_id)
+
 img = torch.zeros((n*m, ny, nx, nch))
 
 for i in range(m):
     for j in range(n):
-        p = i + m*j
+        p = i + m*n_id[j]
         q = n*i + j
 
         img[q, :, :, :] = torch.from_numpy(plt.imread(os.path.join(dir_result, lst_result[p]))[:, :, :nch])
