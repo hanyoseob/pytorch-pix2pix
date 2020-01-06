@@ -57,7 +57,7 @@ We investigate conditional adversarial networks as a general-purpose solution to
     $ tensorboard --logdir [log directory]/[scope name]/[data name] \
                   --port [(optional) 4 digit port number]
 ---
-    $ tensorboard --logdir ./log/facades/celeba
+    $ tensorboard --logdir ./log/pix2pix/facades
                   --port 6006
                   
 After the above comment executes, go **http://localhost:6006**
