@@ -122,9 +122,9 @@ After the above comment executes, go **http://localhost:6006**
     +---checkpoints
     |   \---pix2pix
     |       \---facades
-    |           +---model_epoch00000.pth
+    |           +---model_epoch0000.pth
     |           |   ...
-    |           \---model_epoch12345.pth
+    |           \---model_epoch0200.pth
     +---datasets
     |   \---facades
     |       +---test
