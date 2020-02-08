@@ -16,6 +16,7 @@ We investigate conditional adversarial networks as a general-purpose solution to
                      --dir_log [log directory] \
                      --dir_checkpoint [checkpoint directory] \
                      --direction [A2B or B2A]
+                     --gpu_ids [gpu id; '-1': no gpu, '0, 1, ..., N-1': gpus]
 ---
     $ python main.py --mode train \
                      --scope pix2pix \
@@ -24,6 +25,7 @@ We investigate conditional adversarial networks as a general-purpose solution to
                      --dir_log ./log \
                      --dir_checkpoint ./checkpoint \
                      --direction B2A
+                     --gpu_ids 0
 
 * Set **[scope name]** uniquely.
 * Hyperparameters were written to **arg.txt** under the **[log directory]**.
@@ -39,6 +41,7 @@ We investigate conditional adversarial networks as a general-purpose solution to
                      --dir_checkpoint [checkpoint directory] \
                      --direction [A2B or B2A] \
                      --dir_result [result directory]
+                     --gpu_ids [gpu id; '-1': no gpu, '0, 1, ..., N-1': gpus]
 ---
     $ python main.py --mode test \
                      --scope pix2pix \
@@ -48,6 +51,7 @@ We investigate conditional adversarial networks as a general-purpose solution to
                      --dir_checkpoint ./checkpoints \
                      --direction B2A \
                      --dir_result ./results
+                     --gpu_ids 0
 
 * To test using trained network, set **[scope name]** defined in the **train** phase.
 * Generated images are saved in the **images** subfolder along with **[result directory]** folder.
